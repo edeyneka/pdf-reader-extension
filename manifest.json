@@ -1,35 +1,16 @@
 {
-  "manifest_version": 3,
-  "name": "PDF Reader Extension",
+  "name": "Simple Sidebar Extension",
   "version": "1.0",
-  "description": "Enhances your PDF reading experience with a chat sidebar",
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage",
-    "tabs"
-  ],
-  "host_permissions": [
-    "http://*/*",
-    "https://*/*",
-    "file://*/*"
-  ],
-  "action": {},
-  "content_scripts": [{
-    "matches": [
-      "<all_urls>",
-      "file://*/*.pdf",
-      "*://*/*.pdf"
-    ],
-    "js": ["content.js"],
-    "css": ["styles.css"],
-    "run_at": "document_idle"
-  }],
+  "manifest_version": 3,
+  "description": "A simple sidebar extension example",
+  "action": {
+    "default_title": "Open Sidebar"
+  },
+  "permissions": ["sidePanel"],
   "background": {
     "service_worker": "background.js"
   },
-  "web_accessible_resources": [{
-    "resources": ["sidebar.html"],
-    "matches": ["<all_urls>"]
-  }]
+  "side_panel": {
+    "default_path": "sidebar.html"
+  }
 } 
