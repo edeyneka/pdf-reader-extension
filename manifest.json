@@ -1,22 +1,33 @@
 {
   "manifest_version": 3,
-  "name": "PDF Chat Assistant",
+  "name": "PDF Reader Extension",
   "version": "1.0",
-  "description": "Chat with your PDFs in Chrome PDF viewer",
+  "description": "Enhances your PDF reading experience with a chat sidebar",
   "permissions": [
     "activeTab",
-    "storage"
+    "scripting",
+    "storage",
+    "tabs"
   ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*",
+    "file://*/*"
+  ],
+  "action": {},
+  "content_scripts": [{
+    "matches": [
+      "<all_urls>",
+      "file://*/*.pdf",
+      "*://*/*.pdf"
+    ],
+    "js": ["content.js"],
+    "css": ["styles.css"],
+    "run_at": "document_idle"
+  }],
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": ["*://*/*"],
-      "js": ["content.js"],
-      "css": ["styles.css"]
-    }
-  ],
   "web_accessible_resources": [{
     "resources": ["sidebar.html"],
     "matches": ["<all_urls>"]
