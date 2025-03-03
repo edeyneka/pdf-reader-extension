@@ -32,4 +32,4 @@ Explain how to use the extension, including:
 
 
 ## Contact
-Your Name - [@deyneka_e](https:/x.com/deyneka_e) - kvdeyneka@gmail.com
+Kate - [@deyneka_e](https:/x.com/deyneka_e) - kvdeyneka@gmail.com
