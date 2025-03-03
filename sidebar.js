@@ -9,6 +9,14 @@ document.addEventListener('DOMContentLoaded', function() {
   const saveApiKeyButton = document.getElementById('save-api-key');
   const saveStatus = document.getElementById('save-status');
   
+  // Configure marked.js options
+  marked.setOptions({
+    breaks: true,  // Render line breaks as <br>
+    gfm: true,     // Enable GitHub Flavored Markdown
+    headerIds: false,
+    mangle: false
+  });
+  
   // Load the API key if it exists
   function loadApiKey() {
     chrome.storage.local.get(['openai_api_key'], function(result) {
@@ -57,9 +65,24 @@ document.addEventListener('DOMContentLoaded', function() {
   function addMessage(text, isUser) {
     const messageElement = document.createElement('div');
     messageElement.className = isUser ? 'user-message' : 'response-message';
-    messageElement.textContent = text;
+    
+    if (isUser) {
+      // For user messages, just display the plain text
+      messageElement.textContent = text;
+    } else {
+      // For AI responses, render markdown
+      messageElement.innerHTML = marked.parse(text);
+    }
+    
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Add syntax highlighting to code blocks
+    if (!isUser && messageElement.querySelectorAll('pre code').length > 0) {
+      messageElement.querySelectorAll('pre code').forEach(block => {
+        block.classList.add('code-block');
+      });
+    }
   }
   
   async function callOpenAI(apiKey, message) {
@@ -73,6 +96,10 @@ document.addEventListener('DOMContentLoaded', function() {
         body: JSON.stringify({
           model: 'gpt-4o',
           messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful assistant. Format your responses using markdown for better readability. Use code blocks with language specifications when providing code.'
+            },
             {
               role: 'user',
               content: message

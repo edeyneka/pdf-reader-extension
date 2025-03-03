@@ -174,4 +174,81 @@ h1 {
 .typing-indicator {
   color: #888;
   font-style: italic;
+}
+
+/* Markdown styling */
+.response-message h1,
+.response-message h2,
+.response-message h3,
+.response-message h4,
+.response-message h5,
+.response-message h6 {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  font-weight: bold;
+}
+
+.response-message h1 { font-size: 1.6em; }
+.response-message h2 { font-size: 1.4em; }
+.response-message h3 { font-size: 1.2em; }
+.response-message h4 { font-size: 1.1em; }
+
+.response-message p {
+  margin: 0.5em 0;
+}
+
+.response-message ul, 
+.response-message ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.response-message li {
+  margin: 0.25em 0;
+}
+
+.response-message pre {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 10px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.response-message code {
+  font-family: Consolas, Monaco, 'Andale Mono', monospace;
+  font-size: 0.9em;
+  background-color: #f6f8fa;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.response-message pre code {
+  padding: 0;
+  background-color: transparent;
+  display: block;
+}
+
+.response-message blockquote {
+  border-left: 4px solid #ddd;
+  padding-left: 10px;
+  margin-left: 0;
+  color: #555;
+}
+
+.response-message table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+}
+
+.response-message th,
+.response-message td {
+  border: 1px solid #ddd;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.response-message th {
+  background-color: #f6f8fa;
 } 
