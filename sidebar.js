@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const sendButton = document.getElementById('send-button');
   const chatMessages = document.getElementById('chat-messages');
   const settingsButton = document.getElementById('settings-button');
+  const clearChatButton = document.getElementById('clear-chat-button');
   const settingsModal = document.getElementById('settings-modal');
   const closeButton = document.querySelector('.close-button');
   const apiKeyInput = document.getElementById('api-key');
@@ -201,4 +202,21 @@ document.addEventListener('DOMContentLoaded', function() {
       handleSendMessage();
     }
   });
+
+  // Clear chat conversation history
+  function clearChat() {
+    // Clear the UI
+    chatMessages.innerHTML = '';
+    
+    // Reset the conversation array to just have the system message
+    conversation = [
+      {
+        role: 'system',
+        content: 'You are a helpful assistant. Format your responses using markdown for better readability. Use code blocks with language specifications when providing code.'
+      }
+    ];
+  }
+
+  // Add event listener for the clear chat button
+  clearChatButton.addEventListener('click', clearChat);
 });

@@ -38,6 +38,24 @@ h1 {
   border-bottom: 1px solid #ddd;
 }
 
+.toolbar-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.toolbar-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.toolbar-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
 .title {
   font-weight: bold;
   font-size: 16px;
