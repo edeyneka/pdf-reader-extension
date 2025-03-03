@@ -274,4 +274,28 @@ h1 {
 
 .response-message th {
   background-color: #f6f8fa;
+}
+
+/* Add PDF indicator styles */
+.pdf-indicator {
+  background-color: #e8f4ff;
+  border: 2px solid #7cb9ff;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #0066cc;
+  font-weight: bold;
+  margin: 10px;
+  max-width: calc(100% - 20px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pdf-loaded-message {
+  background-color: #e8f4ff !important;
+  border-left: 4px solid #0066cc !important;
+  font-weight: bold;
 } 

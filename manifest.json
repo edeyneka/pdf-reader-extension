@@ -6,7 +6,17 @@
   "action": {
     "default_title": "Open Sidebar"
   },
-  "permissions": ["sidePanel", "storage"],
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "activeTab",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.arxiv.org/*",
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -18,5 +28,12 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://arxiv.org/pdf/*", "*://*.arxiv.org/pdf/*"],
+      "js": ["pdf-content.js"],
+      "run_at": "document_end"
+    }
+  ]
 } 
