@@ -6,7 +6,7 @@
   "action": {
     "default_title": "Open Sidebar"
   },
-  "permissions": ["sidePanel"],
+  "permissions": ["sidePanel", "storage"],
   "background": {
     "service_worker": "background.js"
   },
