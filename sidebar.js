@@ -9,7 +9,15 @@ document.addEventListener('DOMContentLoaded', function() {
   const saveApiKeyButton = document.getElementById('save-api-key');
   const clearApiKeyButton = document.getElementById('clear-api-key');
   const saveStatus = document.getElementById('save-status');
-  
+
+  // A global conversation array to store system, user, and assistant messages
+  let conversation = [
+    {
+      role: 'system',
+      content: 'You are a helpful assistant. Format your responses using markdown for better readability. Use code blocks with language specifications when providing code.'
+    }
+  ];
+
   // Configure marked.js options
   marked.setOptions({
     breaks: true,  // Render line breaks as <br>
@@ -81,13 +89,13 @@ document.addEventListener('DOMContentLoaded', function() {
     console.warn('Clear API Key button not found in DOM');
   }
   
-  // Chat functionality
+  // Add a message to the chat UI
   function addMessage(text, isUser) {
     const messageElement = document.createElement('div');
     messageElement.className = isUser ? 'user-message' : 'response-message';
     
     if (isUser) {
-      // For user messages, just display the plain text
+      // For user messages, just display plain text
       messageElement.textContent = text;
     } else {
       // For AI responses, render markdown
@@ -97,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
-    // Add syntax highlighting to code blocks
+    // Add syntax highlighting (optional custom styling for code blocks)
     if (!isUser && messageElement.querySelectorAll('pre code').length > 0) {
       messageElement.querySelectorAll('pre code').forEach(block => {
         block.classList.add('code-block');
@@ -105,7 +113,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
-  async function callOpenAI(apiKey, message) {
+  // Call the OpenAI API with the entire conversation
+  async function callOpenAI(apiKey, conversation) {
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -115,16 +124,7 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         body: JSON.stringify({
           model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a helpful assistant. Format your responses using markdown for better readability. Use code blocks with language specifications when providing code.'
-            },
-            {
-              role: 'user',
-              content: message
-            }
-          ],
+          messages: conversation,
           max_tokens: 1000
         })
       });
@@ -142,50 +142,63 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
+  // Handle sending a message
   function handleSendMessage() {
-    const message = chatInput.value.trim();
-    if (message) {
-      addMessage(message, true);
-      chatInput.value = '';
-      
-      // Show typing indicator
-      const typingIndicator = document.createElement('div');
-      typingIndicator.className = 'response-message typing-indicator';
-      typingIndicator.textContent = 'Typing...';
-      chatMessages.appendChild(typingIndicator);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-      
-      // Check if we have an API key before proceeding
-      chrome.storage.local.get(['openai_api_key'], async function(result) {
-        if (result.openai_api_key) {
-          try {
-            const response = await callOpenAI(result.openai_api_key, message);
-            // Remove typing indicator
-            chatMessages.removeChild(typingIndicator);
-            // Add the API response
-            addMessage(response, false);
-          } catch (error) {
-            // Remove typing indicator
-            chatMessages.removeChild(typingIndicator);
-            // Show error message
-            addMessage(`Error: ${error.message}`, false);
-          }
-        } else {
-          // Remove typing indicator
-          chatMessages.removeChild(typingIndicator);
-          // Prompt for API key
-          addMessage("Please add your OpenAI API key in settings to enable chat functionality.", false);
-          settingsModal.style.display = 'block';
-        }
-      });
-    }
+    const userMessage = chatInput.value.trim();
+    if (!userMessage) return; // don't send empty messages
+    
+    // Clear the input and show the user's message
+    chatInput.value = '';
+    addMessage(userMessage, true);
+
+    // Add user message to the conversation array
+    conversation.push({ role: 'user', content: userMessage });
+    
+    // Show typing indicator
+    const typingIndicator = document.createElement('div');
+    typingIndicator.className = 'response-message typing-indicator';
+    typingIndicator.textContent = 'Typing...';
+    chatMessages.appendChild(typingIndicator);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Fetch the API key and call OpenAI
+    chrome.storage.local.get(['openai_api_key'], async function(result) {
+      const apiKey = result.openai_api_key;
+      if (!apiKey) {
+        // No API key, prompt the user to add one
+        chatMessages.removeChild(typingIndicator);
+        addMessage("Please add your OpenAI API key in settings to enable chat functionality.", false);
+        settingsModal.style.display = 'block';
+        return;
+      }
+
+      // We have an API key, call the API with the entire conversation array
+      try {
+        const aiResponse = await callOpenAI(apiKey, conversation);
+        
+        // Remove typing indicator
+        chatMessages.removeChild(typingIndicator);
+        
+        // Display the AI response
+        addMessage(aiResponse, false);
+
+        // Add the assistant response to conversation
+        conversation.push({ role: 'assistant', content: aiResponse });
+
+      } catch (error) {
+        chatMessages.removeChild(typingIndicator);
+        addMessage(`Error: ${error.message}`, false);
+      }
+    });
   }
   
+  // Send button click
   sendButton.addEventListener('click', handleSendMessage);
   
+  // Press Enter to send
   chatInput.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
       handleSendMessage();
     }
   });
-}); 
+});
