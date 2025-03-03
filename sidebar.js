@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const closeButton = document.querySelector('.close-button');
   const apiKeyInput = document.getElementById('api-key');
   const saveApiKeyButton = document.getElementById('save-api-key');
+  const clearApiKeyButton = document.getElementById('clear-api-key');
   const saveStatus = document.getElementById('save-status');
   
   // Configure marked.js options
@@ -43,6 +44,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
+  // Clear API key from storage
+  function clearApiKey() {
+    chrome.storage.local.remove('openai_api_key', function() {
+      apiKeyInput.value = '';
+      saveStatus.textContent = 'API key cleared successfully!';
+      saveStatus.className = 'save-status success';
+      setTimeout(() => {
+        saveStatus.textContent = '';
+      }, 3000);
+    });
+  }
+  
   // Settings modal controls
   settingsButton.addEventListener('click', function() {
     loadApiKey(); // Load the API key when opening settings
@@ -60,6 +73,13 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   
   saveApiKeyButton.addEventListener('click', saveApiKey);
+  
+  // Only attach event listener if the button exists
+  if (clearApiKeyButton) {
+    clearApiKeyButton.addEventListener('click', clearApiKey);
+  } else {
+    console.warn('Clear API Key button not found in DOM');
+  }
   
   // Chat functionality
   function addMessage(text, isUser) {

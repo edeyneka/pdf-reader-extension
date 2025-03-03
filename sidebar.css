@@ -149,13 +149,18 @@ h1 {
   border-radius: 4px;
 }
 
-#save-api-key {
-  padding: 8px 12px;
-  background-color: #4285f4;
+#save-api-key, #clear-api-key {
+  background-color: #0078d7;
   color: white;
   border: none;
+  padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
+  margin-right: 10px;
+}
+
+#save-api-key:hover, #clear-api-key:hover {
+  background-color: #005a9e;
 }
 
 .save-status {
