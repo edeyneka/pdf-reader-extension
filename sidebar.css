@@ -169,4 +169,9 @@ h1 {
 
 .error {
   color: red;
+}
+
+.typing-indicator {
+  color: #888;
+  font-style: italic;
 } 

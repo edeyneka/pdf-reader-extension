@@ -62,21 +62,71 @@ document.addEventListener('DOMContentLoaded', function() {
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
   
+  async function callOpenAI(apiKey, message) {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'user',
+              content: message
+            }
+          ],
+          max_tokens: 1000
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'API request failed');
+      }
+      
+      const data = await response.json();
+      return data.choices[0]?.message?.content || 'No response from API';
+    } catch (error) {
+      console.error('Error calling OpenAI API:', error);
+      return `Error: ${error.message}`;
+    }
+  }
+  
   function handleSendMessage() {
     const message = chatInput.value.trim();
     if (message) {
       addMessage(message, true);
       chatInput.value = '';
       
+      // Show typing indicator
+      const typingIndicator = document.createElement('div');
+      typingIndicator.className = 'response-message typing-indicator';
+      typingIndicator.textContent = 'Typing...';
+      chatMessages.appendChild(typingIndicator);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      
       // Check if we have an API key before proceeding
-      chrome.storage.local.get(['openai_api_key'], function(result) {
+      chrome.storage.local.get(['openai_api_key'], async function(result) {
         if (result.openai_api_key) {
-          // For now, just respond with "Hey Kate"
-          // Later, this is where you would make API calls to OpenAI
-          setTimeout(() => {
-            addMessage("Hey Kate", false);
-          }, 500);
+          try {
+            const response = await callOpenAI(result.openai_api_key, message);
+            // Remove typing indicator
+            chatMessages.removeChild(typingIndicator);
+            // Add the API response
+            addMessage(response, false);
+          } catch (error) {
+            // Remove typing indicator
+            chatMessages.removeChild(typingIndicator);
+            // Show error message
+            addMessage(`Error: ${error.message}`, false);
+          }
         } else {
+          // Remove typing indicator
+          chatMessages.removeChild(typingIndicator);
+          // Prompt for API key
           addMessage("Please add your OpenAI API key in settings to enable chat functionality.", false);
           settingsModal.style.display = 'block';
         }
