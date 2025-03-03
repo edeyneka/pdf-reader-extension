@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "PDF Chat Assistant",
+  "version": "1.0",
+  "description": "Chat with your PDFs in Chrome PDF viewer",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "web_accessible_resources": [{
+    "resources": ["sidebar.html"],
+    "matches": ["<all_urls>"]
+  }]
+} 
