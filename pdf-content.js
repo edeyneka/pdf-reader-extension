@@ -54,4 +54,15 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('PDF detected, initializing extension...');
     // Your PDF handling code
   }
+});
+
+// Listen for messages from the sidebar
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "checkIfPdf") {
+    // Check if we're in a PDF page
+    const isPdf = document.querySelector('embed[type="application/pdf"]') !== null ||
+                 window.location.href.toLowerCase().endsWith('.pdf');
+    sendResponse({ isPdf });
+  }
+  return true; // Required for async response
 }); 

@@ -31,7 +31,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://arxiv.org/pdf/*", "*://*.arxiv.org/pdf/*"],
+      "matches": [
+        "*://arxiv.org/pdf/*", 
+        "*://*.arxiv.org/pdf/*",
+        "*://*/*.pdf",
+        "file://*/*.pdf"
+      ],
       "js": ["pdf-content.js"],
       "run_at": "document_end"
     }

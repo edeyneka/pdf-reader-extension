@@ -10,16 +10,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const saveApiKeyButton = document.getElementById('save-api-key');
   const clearApiKeyButton = document.getElementById('clear-api-key');
   const saveStatus = document.getElementById('save-status');
-  const pdfButton = document.getElementById('pdf-button');
-
-  // Add new variables for PDF handling
-  let isPdfContext = false;
-  let pdfUrl = '';
-  let pdfContent = '';
-  const pdfIndicator = document.createElement('div');
-  pdfIndicator.className = 'pdf-indicator';
-  pdfIndicator.style.display = 'none';
-  document.querySelector('.toolbar').appendChild(pdfIndicator);
 
   // A global conversation array to store system, user, and assistant messages
   let conversation = [
@@ -29,8 +19,54 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   ];
 
-  // Add this variable at the top with other state variables
-  let pdfBase64 = null;
+  // Add this near the top with other variable declarations
+  let isPdfPage = false;
+
+  // Move the function definition before its usage
+  async function isPdfDocument() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      // Check if URL ends with .pdf or contains /pdf/
+      return tab.url.toLowerCase().endsWith('.pdf') || 
+             tab.url.toLowerCase().includes('/pdf/') ||
+             tab.url.startsWith('chrome://pdf-viewer/') ||
+             tab.url.startsWith('chrome-extension://') && tab.url.includes('pdf');
+    } catch (error) {
+      console.error('Error checking PDF:', error);
+      return false;
+    }
+  }
+
+  async function checkIfPdfPage() {
+    try {
+      isPdfPage = await isPdfDocument();
+      if (isPdfPage) {
+        addMessage("Fetching PDF document...", false);
+      }
+    } catch (error) {
+      console.error('Error checking PDF status:', error);
+    }
+  }
+
+  // Modify the clearChat function
+  async function clearChat() {
+    // Clear the UI completely
+    chatMessages.innerHTML = '';
+    
+    // Reset the conversation array
+    conversation = [
+      {
+        role: 'system',
+        content: 'You are a helpful assistant. Format your responses using markdown for better readability. Use code blocks with language specifications when providing code.'
+      }
+    ];
+
+    // Re-check PDF status
+    await checkIfPdfPage();
+  }
+
+  // Initial check for PDF
+  checkIfPdfPage();
 
   // Configure marked.js options
   marked.setOptions({
@@ -130,60 +166,17 @@ document.addEventListener('DOMContentLoaded', function() {
   // Call the OpenAI API with the entire conversation
   async function callOpenAI(apiKey, conversation) {
     try {
-      // Prepare messages
-      let messages = conversation.map(msg => {
-        // For standard text messages
-        if (typeof msg.content === 'string') {
-          return msg;
-        }
-        // For array content (shouldn't happen in our current setup)
-        return msg;
-      });
-      
-      // Prepare request body
-      let requestBody = {
-        model: 'gpt-4o',
-        max_tokens: 1000
-      };
-      
-      // If we have a PDF and this is the first user question after PDF is loaded
-      if (pdfBase64 && messages.length === 2 && messages[1].role === 'user') {
-        // Format with document in content array
-        requestBody.messages = [
-          messages[0], // System message
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'document',
-                source: {
-                  type: 'base64',
-                  media_type: 'application/pdf',
-                  data: pdfBase64
-                }
-              },
-              {
-                type: 'text',
-                text: messages[1].content
-              }
-            ]
-          }
-        ];
-        
-        // Clear the PDF data after using it once to avoid sending it multiple times
-        pdfBase64 = null;
-      } else {
-        // Standard message format
-        requestBody.messages = messages;
-      }
-      
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: conversation,
+          max_tokens: 1000
+        })
       });
       
       if (!response.ok) {
@@ -259,185 +252,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Listen for messages from background.js about PDFs
-  chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-    if (request.action === "pdf_detected") {
-      isPdfContext = true;
-      pdfUrl = request.url;
-      updatePdfIndicator();
-    } else if (request.action === "pdf_content" && request.text) {
-      pdfContent = request.text;
-      
-      // Clear existing conversation and start a new one with PDF context
-      clearChat();
-      
-      // Add PDF context to the conversation
-      const truncatedContent = pdfContent.length > 3000 ? 
-        pdfContent.substring(0, 3000) + "... [content truncated due to length]" : 
-        pdfContent;
-        
-      conversation = [
-        {
-          role: 'system',
-          content: `You are a helpful assistant. You are analyzing a PDF document. 
-Format your responses using markdown for better readability.
-Here is the content of the PDF:
-
-${truncatedContent}
-
-When answering questions, focus on information from this PDF. If the question cannot be answered using the PDF content, politely explain that the information is not in the document.`
-        }
-      ];
-      
-      // Add indicator message in the chat
-      addMessage(`PDF loaded: ${pdfUrl.split('/').pop()}. You can now ask questions about this document.`, false);
-      updatePdfIndicator();
-    } else if (request.action === "check_for_pdf") {
-      // Get the active tab and check if it's a PDF
-      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-        if (tabs && tabs[0]) {
-          const activeTab = tabs[0];
-          chrome.scripting.executeScript({
-            target: { tabId: activeTab.id },
-            function: function() {
-              // Various ways to detect a PDF
-              const isPdf = document.querySelector('embed[type="application/pdf"]') !== null ||
-                            document.querySelector('object[type="application/pdf"]') !== null ||
-                            document.querySelector('.textLayer') !== null ||
-                            window.location.href.toLowerCase().endsWith('.pdf');
-                            
-              if (isPdf) {
-                let pdfText = "";
-                const textLayers = document.querySelectorAll('.textLayer div');
-                if (textLayers.length > 0) {
-                  textLayers.forEach(el => {
-                    pdfText += el.textContent + " ";
-                  });
-                } else {
-                  pdfText = document.body.innerText;
-                }
-                
-                chrome.runtime.sendMessage({
-                  action: "pdf_content",
-                  text: pdfText || "PDF detected but content extraction was limited.",
-                  url: window.location.href
-                });
-              } else {
-                chrome.runtime.sendMessage({
-                  action: "not_pdf"
-                });
-              }
-            }
-          }).catch(err => {
-            console.error("Error executing script:", err);
-          });
-        }
-      });
-    } else if (request.action === "not_pdf") {
-      addMessage("No PDF detected on the current page.", false);
-    } else if (request.action === "pdf_base64") {
-      pdfBase64 = request.base64Data;
-      pdfUrl = request.url;
-      isPdfContext = true;
-      
-      // Update the conversation with system prompt for PDF
-      conversation = [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant. You will be analyzing a PDF document. Format your responses using markdown for better readability. When answering questions, focus on information from the provided PDF.'
-        }
-      ];
-      
-      // Show success message
-      addMessage(`PDF successfully loaded: ${pdfUrl.split('/').pop()}. You can now ask questions about this document.`, false);
-      updatePdfIndicator();
-    } else if (request.action === "pdf_error") {
-      addMessage(`Error loading PDF: ${request.error}`, false);
-    }
-  });
-  
-  // Update the PDF indicator in the UI
-  function updatePdfIndicator() {
-    if (isPdfContext) {
-      // Make indicator more prominent
-      pdfIndicator.textContent = `📄 PDF Active: ${pdfUrl.split('/').pop()}`;
-      pdfIndicator.style.display = 'block';
-      
-      // Add a message to the chat if not already added
-      if (!document.querySelector('.pdf-loaded-message')) {
-        const messageElement = document.createElement('div');
-        messageElement.className = 'response-message pdf-loaded-message';
-        messageElement.innerHTML = `<strong>PDF loaded:</strong> ${pdfUrl.split('/').pop()}<br>The AI will now answer questions based on this document.`;
-        chatMessages.appendChild(messageElement);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-      }
-    } else {
-      pdfIndicator.style.display = 'none';
-    }
-  }
-
-  // Clear chat function - update to also clear PDF context
-  function clearChat() {
-    // Clear the UI
-    chatMessages.innerHTML = '';
-    
-    // Reset PDF context if it was active
-    if (isPdfContext) {
-      // Ask user if they want to keep PDF context
-      if (confirm("Do you want to clear the PDF context as well?")) {
-        isPdfContext = false;
-        pdfUrl = '';
-        pdfContent = '';
-        updatePdfIndicator();
-        
-        // Reset to standard conversation
-        conversation = [
-          {
-            role: 'system',
-            content: 'You are a helpful assistant. Format your responses using markdown for better readability. Use code blocks with language specifications when providing code.'
-          }
-        ];
-      } else {
-        // Keep PDF context but clear messages
-        // The conversation array already has the PDF context in the system message
-      }
-    } else {
-      // Reset to standard conversation
-      conversation = [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant. Format your responses using markdown for better readability. Use code blocks with language specifications when providing code.'
-        }
-      ];
-    }
-  }
-
-  // Add event listener for the clear chat button
+  // Modify the clear chat button event listener
   clearChatButton.addEventListener('click', clearChat);
-
-  // Add event listener for the PDF button
-  pdfButton.addEventListener('click', function() {
-    // Show loading message
-    addMessage("Fetching PDF document...", false);
-    
-    // Get current tab
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      if (tabs && tabs[0]) {
-        const pdfUrl = tabs[0].url;
-        
-        // Check if it's a PDF URL
-        if (pdfUrl.toLowerCase().includes('.pdf') || 
-            pdfUrl.toLowerCase().includes('arxiv.org/pdf')) {
-          
-          // Fetch the PDF binary data
-          chrome.runtime.sendMessage({ 
-            action: "fetch_pdf", 
-            url: pdfUrl 
-          });
-        } else {
-          addMessage("Current page does not appear to be a PDF. Please navigate to a PDF document.", false);
-        }
-      }
-    });
-  });
 });
