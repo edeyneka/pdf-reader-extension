@@ -48,7 +48,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageListener = (message) => {
           if (message.action === "pdf_content_for_sidebar") {
             pdfContent = message.text;
-            addMessage("PDF Content:\n\n" + pdfContent, false);
+            // Add PDF content to conversation as system message
+            conversation.push({
+              role: 'system',
+              content: 'Here is the PDF content to provide context for user questions. Use this content to answer questions:\n\n' + pdfContent
+            });
+            addMessage("PDF loaded successfully. You can now ask questions about its content.", false);
             // Remove the listener after receiving the message
             chrome.runtime.onMessage.removeListener(messageListener);
           }
@@ -85,8 +90,14 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     ];
 
-    // Re-check PDF status
-    await checkIfPdfPage();
+    // If we have PDF content, add it back to the conversation
+    if (pdfContent) {
+      conversation.push({
+        role: 'system',
+        content: 'Here is the PDF content to provide context for user questions. Use this content to answer questions:\n\n' + pdfContent
+      });
+      addMessage("Chat cleared. PDF content is still available for context.", false);
+    }
   }
 
   // Initial check for PDF
