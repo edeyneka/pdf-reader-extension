@@ -1,4 +1,11 @@
 document.addEventListener('DOMContentLoaded', function() {
+  // Add this debug check
+  if (typeof katex === 'undefined') {
+    console.error('KaTeX is not loaded!');
+  } else {
+    console.log('KaTeX loaded successfully');
+  }
+
   const chatInput = document.getElementById('chat-input');
   const sendButton = document.getElementById('send-button');
   const chatMessages = document.getElementById('chat-messages');
@@ -105,10 +112,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Configure marked.js options
   marked.setOptions({
-    breaks: true,  // Render line breaks as <br>
-    gfm: true,     // Enable GitHub Flavored Markdown
+    breaks: true,
+    gfm: true,
     headerIds: false,
-    mangle: false
+    mangle: false,
+    extensions: [{
+      name: 'math',
+      level: 'block',
+      tokenizer(src) {
+        const mathMatch = src.match(/^\$\$(.*?)\$\$|\[(.*?)\]/);
+        if (mathMatch) {
+          return {
+            type: 'math',
+            raw: mathMatch[0],
+            text: mathMatch[1] || mathMatch[2],
+            tokens: []
+          };
+        }
+      },
+      renderer(token) {
+        return `<span class="math-wrapper">${token.raw}</span>`;
+      }
+    }]
   });
   
   // Load the API key if it exists
@@ -174,23 +199,98 @@ document.addEventListener('DOMContentLoaded', function() {
     console.warn('Clear API Key button not found in DOM');
   }
   
-  // Add a message to the chat UI
+  // Add this debug function at the top level
+  function debugLog(message, data = null) {
+    const debugMsg = data ? `${message}: ${JSON.stringify(data)}` : message;
+    console.log(`%c${debugMsg}`, 'color: #0066cc');
+  }
+  
+  // Modify the processMathExpressions function
+  function processMathExpressions(text) {
+    debugLog('Processing text for math:', text);
+
+    // Helper function to escape special characters
+    function escapeLatex(str) {
+      return str.replace(/\\/g, '\\\\')
+                .replace(/{/g, '\\{')
+                .replace(/}/g, '\\}')
+                .replace(/_/g, '\\_');
+    }
+
+    // First handle display math with double dollar signs
+    text = text.replace(/\$\$(.*?)\$\$/g, (match, formula) => {
+      debugLog('Found $$ math:', { match, formula });
+      try {
+        // Don't escape the formula for $$ math
+        const rendered = katex.renderToString(formula, {
+          displayMode: true,
+          throwOnError: false,
+          strict: false
+        });
+        debugLog('Rendered $$ math:', rendered);
+        return rendered;
+      } catch (error) {
+        console.error('KaTeX $$ error:', error);
+        return match;
+      }
+    });
+
+    // Then handle square bracket math
+    text = text.replace(/\[(.*?)\]/g, (match, formula) => {
+      debugLog('Found [] math:', { match, formula });
+      try {
+        // Don't escape the formula for [] math
+        const rendered = katex.renderToString(formula, {
+          displayMode: true,
+          throwOnError: false,
+          strict: false
+        });
+        debugLog('Rendered [] math:', rendered);
+        return rendered;
+      } catch (error) {
+        console.error('KaTeX [] error:', error);
+        return match;
+      }
+    });
+
+    debugLog('Final processed text:', text);
+    return text;
+  }
+  
+  // Modify the addMessage function
   function addMessage(text, isUser) {
+    debugLog('Adding message:', { text, isUser });
     const messageElement = document.createElement('div');
     messageElement.className = isUser ? 'user-message' : 'response-message';
     
     if (isUser) {
-      // For user messages, just display plain text
       messageElement.textContent = text;
     } else {
-      // For AI responses, render markdown
-      messageElement.innerHTML = marked.parse(text);
+      debugLog('Processing AI response');
+      
+      // First protect math expressions from markdown processing
+      const protectedText = text.replace(/(\$\$.*?\$\$|\[.*?\])/g, match => {
+        return match.replace(/[_*]/g, '\\$&');
+      });
+      
+      // Process markdown first
+      const markedText = marked.parse(protectedText);
+      debugLog('Markdown processed text:', markedText);
+      
+      // Then process math expressions
+      const processedText = processMathExpressions(markedText);
+      debugLog('Math processed text:', processedText);
+      
+      // Clean up unwanted br tags around math expressions
+      const cleanedText = processedText.replace(/<br>\s*(<span class="math-wrapper">.*?<\/span>)\s*<br>/g, '$1');
+      
+      messageElement.innerHTML = cleanedText;
     }
     
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
-    // Add syntax highlighting (optional custom styling for code blocks)
+    // Add syntax highlighting for code blocks
     if (!isUser && messageElement.querySelectorAll('pre code').length > 0) {
       messageElement.querySelectorAll('pre code').forEach(block => {
         block.classList.add('code-block');
@@ -289,4 +389,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Modify the clear chat button event listener
   clearChatButton.addEventListener('click', clearChat);
+
+  // Debug KaTeX loading
+  if (typeof katex === 'undefined') {
+    console.error('KaTeX is not loaded!');
+  } else {
+    debugLog('KaTeX version:', katex.version);
+  }
 });

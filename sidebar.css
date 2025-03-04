@@ -121,6 +121,7 @@ h1 {
   background-color: #f1f1f1;
   align-self: flex-start;
   margin-right: auto;
+  overflow-x: auto;
 }
 
 /* Modal Styles */
@@ -298,4 +299,50 @@ h1 {
   background-color: #e8f4ff !important;
   border-left: 4px solid #0066cc !important;
   font-weight: bold;
+}
+
+.math-block {
+  overflow-x: auto;
+  padding: 8px 0;
+  text-align: center;
+}
+
+.katex-display {
+  margin: 1em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-top: 0.5em;
+  padding-bottom: 0.5em;
+}
+
+.katex {
+  font-size: 1.1em;
+}
+
+/* Update math styling */
+.math-wrapper {
+  display: block;
+  margin: 1em 0;
+  text-align: center;
+}
+
+.katex-display {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.response-message p:empty {
+  display: none;
+}
+
+/* Remove any br tags that might be causing issues */
+.response-message br + .math-wrapper,
+.response-message .math-wrapper + br,
+.response-message p:empty + br {
+  display: none;
+}
+
+/* Ensure proper spacing between elements */
+.response-message > *:not(:last-child) {
+  margin-bottom: 0.5em;
 } 
