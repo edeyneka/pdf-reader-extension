@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Add this near the top with other variable declarations
   let isPdfPage = false;
+  let pdfContent = '';
 
   // Move the function definition before its usage
   async function isPdfDocument() {
@@ -42,9 +43,32 @@ document.addEventListener('DOMContentLoaded', function() {
       isPdfPage = await isPdfDocument();
       if (isPdfPage) {
         addMessage("Fetching PDF document...", false);
+        
+        // Set up a one-time message listener
+        const messageListener = (message) => {
+          if (message.action === "pdf_content_for_sidebar") {
+            pdfContent = message.text;
+            addMessage("PDF Content:\n\n" + pdfContent, false);
+            // Remove the listener after receiving the message
+            chrome.runtime.onMessage.removeListener(messageListener);
+          }
+        };
+        
+        // Add the listener
+        chrome.runtime.onMessage.addListener(messageListener);
+
+        // Get the current tab
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        
+        // Execute the content script
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['pdf-content.js']
+        });
       }
     } catch (error) {
       console.error('Error checking PDF status:', error);
+      addMessage("Error extracting PDF content: " + error.message, false);
     }
   }
 

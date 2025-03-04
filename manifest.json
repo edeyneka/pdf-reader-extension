@@ -37,8 +37,17 @@
         "*://*/*.pdf",
         "file://*/*.pdf"
       ],
-      "js": ["pdf-content.js"],
-      "run_at": "document_end"
+      "js": [
+        "pdf-content.js"
+      ],
+      "run_at": "document_idle"
     }
-  ]
+  ],
+  "web_accessible_resources": [{
+    "resources": [
+      "js/pdf.mjs",
+      "js/pdf.worker.mjs"
+    ],
+    "matches": ["<all_urls>"]
+  }]
 } 

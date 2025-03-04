@@ -241,4 +241,20 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     console.log('ArXiv PDF detected');
     chrome.tabs.sendMessage(tabId, { type: 'ARXIV_PDF_LOADED' });
   }
+});
+
+// Simplify the message handling in background.js
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "pdf_content") {
+    // Forward the PDF content to sidebar with a different action name
+    chrome.runtime.sendMessage({
+      action: "pdf_content_for_sidebar",
+      text: message.text,
+      url: message.url
+    }).catch(() => {
+      // Ignore errors when sidebar isn't ready
+      console.log("Sidebar not ready yet");
+    });
+  }
+  return true; // Keep the message channel open
 }); 
