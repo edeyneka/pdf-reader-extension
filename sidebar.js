@@ -255,6 +255,44 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
           saveStatus.textContent = '';
         }, 3000);
+        
+        // Close the settings modal
+        settingsModal.style.display = 'none';
+        
+        // If we have PDF content, trigger summarization
+        if (pdfContent) {
+          // Add PDF content to conversation if not already present
+          if (!conversation.some(msg => msg.content.includes(pdfContent))) {
+            conversation.push({
+              role: 'system',
+              content: 'Here is the PDF content to provide context for user questions. Use this content to answer questions:\n\n' + pdfContent
+            });
+          }
+          
+          // Show summarizing indicator
+          const typingIndicator = document.createElement('div');
+          typingIndicator.className = 'response-message typing-indicator';
+          typingIndicator.textContent = 'Summarizing...';
+          chatMessages.appendChild(typingIndicator);
+          
+          // Add the summary request to conversation
+          conversation.push({ 
+            role: 'user', 
+            content: 'Analyze and explain a scientific paper in an accessible format...' // Your existing summary prompt
+          });
+          
+          // Call OpenAI with the conversation
+          callOpenAI(apiKey, conversation)
+            .then(aiResponse => {
+              chatMessages.removeChild(typingIndicator);
+              addMessage(aiResponse, false);
+              conversation.push({ role: 'assistant', content: aiResponse });
+            })
+            .catch(error => {
+              chatMessages.removeChild(typingIndicator);
+              addMessage(`Error: ${error.message}`, false);
+            });
+        }
       });
     } else {
       saveStatus.textContent = 'Please enter a valid API key.';
