@@ -2,7 +2,7 @@
   "name": "PDF AI Reader",
   "version": "1.0",
   "manifest_version": 3,
-  "description": "A simple sidebar extension example",
+  "description": "An AI-powered PDF reader that helps you analyze and interact with PDF documents",
   "action": {
     "default_title": "Open Sidebar"
   },
