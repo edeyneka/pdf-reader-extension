@@ -1,4 +1,48 @@
 document.addEventListener('DOMContentLoaded', function() {
+  const pdfButton = document.getElementById('pdf-button');
+  
+  pdfButton.addEventListener('click', async function() {
+    const isActive = pdfButton.getAttribute('data-active') === 'true';
+    
+    if (!isActive) {
+      // Activate PDF context
+      pdfButton.setAttribute('data-active', 'true');
+      
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        
+        // Execute the content script to extract PDF content
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['pdf-content.js']
+        });
+        
+        // Add PDF context as a system message to the existing conversation
+        if (pdfContent) {
+          conversation.push({
+            role: 'system',
+            content: 'Here is the PDF content to provide context for user questions. Use this content to answer questions:\n\n' + pdfContent
+          });
+        }
+        
+        addMessage("PDF context added", false);
+      } catch (error) {
+        console.error('Error activating PDF context:', error);
+        addMessage("Error adding PDF to context: " + error.message, false);
+        pdfButton.setAttribute('data-active', 'false');
+      }
+    } else {
+      // Deactivate PDF context
+      pdfButton.setAttribute('data-active', 'false');
+      
+      // Remove PDF content from conversation
+      conversation = conversation.filter(msg => 
+        !msg.content.includes('Here is the PDF content to provide context'));
+      
+      pdfContent = '';
+      addMessage("PDF context removed", false);
+    }
+  });
   // Add this debug check
   if (typeof katex === 'undefined') {
     console.error('KaTeX is not loaded!');
@@ -49,30 +93,108 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       isPdfPage = await isPdfDocument();
       if (isPdfPage) {
-        addMessage("Fetching PDF document...", false);
-        
-        // Set up a one-time message listener
         const messageListener = (message) => {
           if (message.action === "pdf_content_for_sidebar") {
             pdfContent = message.text;
-            // Add PDF content to conversation as system message
+            // Add PDF content to conversation
             conversation.push({
               role: 'system',
               content: 'Here is the PDF content to provide context for user questions. Use this content to answer questions:\n\n' + pdfContent
             });
-            addMessage("PDF loaded successfully. You can now ask questions about its content.", false);
-            // Remove the listener after receiving the message
+            
+            // Remove the listener
             chrome.runtime.onMessage.removeListener(messageListener);
+            
+            // Automatically request a summary
+            conversation.push({ 
+              role: 'user', 
+              content: 'Analyze and explain a scientific paper in an accessible format, breaking down complex research into understandable components while preserving technical accuracy.\n\n' +
+                'The response should be formatted in markdown with the following structure:\n\n' +
+                '# Paper Title\n' +
+                '[📄 Paper]({pdf_url}) | [💻 Code](url)\n\n' +
+                '## Abstract\n\n' +
+                '## Summary in Simple Terms\n\n' +
+                '## Main Contributions\n' +
+                '1. \n' +
+                '2. \n' +
+                '...\n\n' +
+                '## Background & Significance\n\n' +
+                '## Algorithm Steps\n' +
+                '1. Input Processing:\n' +
+                '   1. \n' +
+                '   2. \n' +
+                '...\n' +
+                '2. Training:\n' +
+                '   1. \n' +
+                '   2. \n' +
+                '...\n' +
+                '3. Inference:\n' +
+                '   1. \n' +
+                '   2. \n' +
+                '...\n\n' +
+                '## Advantages Over Previous Works\n' +
+                '- \n' +
+                '- ...\n\n' +
+                '## Limitations\n' +
+                '1. \n' +
+                '2. \n' +
+                '...\n\n' +
+                '## Technical Terms\n' +
+                '- **Term1**: definition\n' +
+                '- **Term2**: definition\n' +
+                '...\n\n' +
+                'Include the original paper URL which is {pdf_url}.\n' +
+                'Maintain scientific accuracy while making explanations accessible.\n\n' +
+                'For each research paper, provide:\n\n' +
+                '1. The title at the top, formatted as a main heading\n' +
+                '2. Publishing organizations that released the paper\n' +
+                '3. Specific keywords as tags that reflect unique methods, applications, or contributions\n' +
+                '4. The official abstract copied from the paper\n' +
+                '5. A simplified explanation in layman\'s terms\n' +
+                '6. A clear list of the paper\'s main contributions\n' +
+                '7. Relevant background information explaining why this research is important now\n' +
+                '8. A step-by-step breakdown of the main algorithm or methodology\n' +
+                '9. Comparisons to previous work, highlighting improvements\n' +
+                '10. Honest assessment of the paper\'s limitations\n' +
+                '11. Definitions of specialized technical terms\n' +
+                '12. Links to both the original paper and code repository (if available)\n\n' +
+                'The analysis should help readers understand both the technical details and practical significance of the research without requiring expert-level knowledge in the field.'
+            });
+            
+            // Show summarizing indicator
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'response-message typing-indicator';
+            typingIndicator.textContent = 'Summarizing...';
+            chatMessages.appendChild(typingIndicator);
+            
+            // Get API key and call OpenAI
+            chrome.storage.local.get(['openai_api_key'], async function(result) {
+              const apiKey = result.openai_api_key;
+              if (!apiKey) {
+                chatMessages.removeChild(typingIndicator);
+                addMessage("Please add your OpenAI API key in settings to enable chat functionality.", false);
+                settingsModal.style.display = 'block';
+                return;
+              }
+
+              try {
+                const aiResponse = await callOpenAI(apiKey, conversation);
+                chatMessages.removeChild(typingIndicator);
+                addMessage(aiResponse, false);
+                conversation.push({ role: 'assistant', content: aiResponse });
+              } catch (error) {
+                chatMessages.removeChild(typingIndicator);
+                addMessage(`Error: ${error.message}`, false);
+              }
+            });
           }
         };
         
         // Add the listener
         chrome.runtime.onMessage.addListener(messageListener);
 
-        // Get the current tab
+        // Get current tab and execute content script
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        
-        // Execute the content script
         await chrome.scripting.executeScript({
           target: { tabId: tab.id },
           files: ['pdf-content.js']
@@ -97,14 +219,10 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     ];
 
-    // If we have PDF content, add it back to the conversation
-    if (pdfContent) {
-      conversation.push({
-        role: 'system',
-        content: 'Here is the PDF content to provide context for user questions. Use this content to answer questions:\n\n' + pdfContent
-      });
-      addMessage("Chat cleared. PDF content is still available for context.", false);
-    }
+    // Reset PDF state
+    pdfContent = '';
+    const pdfButton = document.getElementById('pdf-button');
+    pdfButton.setAttribute('data-active', 'false');
   }
 
   // Initial check for PDF
@@ -135,7 +253,19 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }]
   });
-  
+
+  // Add this after the marked.setOptions configuration
+  function handleLinkClick(event) {
+    // Check if the clicked element is a link
+    if (event.target.tagName === 'A') {
+      event.preventDefault();
+      const url = event.target.href;
+      
+      // Open the link in a new tab
+      chrome.tabs.create({ url: url });
+    }
+  }
+
   // Load the API key if it exists
   function loadApiKey() {
     chrome.storage.local.get(['openai_api_key'], function(result) {
@@ -285,6 +415,9 @@ document.addEventListener('DOMContentLoaded', function() {
       const cleanedText = processedText.replace(/<br>\s*(<span class="math-wrapper">.*?<\/span>)\s*<br>/g, '$1');
       
       messageElement.innerHTML = cleanedText;
+
+      // Add click event listener for links
+      messageElement.addEventListener('click', handleLinkClick);
     }
     
     chatMessages.appendChild(messageElement);
