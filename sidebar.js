@@ -1,48 +1,4 @@
 document.addEventListener('DOMContentLoaded', function() {
-  const pdfButton = document.getElementById('pdf-button');
-  
-  pdfButton.addEventListener('click', async function() {
-    const isActive = pdfButton.getAttribute('data-active') === 'true';
-    
-    if (!isActive) {
-      // Activate PDF context
-      pdfButton.setAttribute('data-active', 'true');
-      
-      try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        
-        // Execute the content script to extract PDF content
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ['pdf-content.js']
-        });
-        
-        // Add PDF context as a system message to the existing conversation
-        if (pdfContent) {
-          conversation.push({
-            role: 'system',
-            content: 'Here is the PDF content to provide context for user questions. Use this content to answer questions:\n\n' + pdfContent
-          });
-        }
-        
-        addMessage("PDF context added", false);
-      } catch (error) {
-        console.error('Error activating PDF context:', error);
-        addMessage("Error adding PDF to context: " + error.message, false);
-        pdfButton.setAttribute('data-active', 'false');
-      }
-    } else {
-      // Deactivate PDF context
-      pdfButton.setAttribute('data-active', 'false');
-      
-      // Remove PDF content from conversation
-      conversation = conversation.filter(msg => 
-        !msg.content.includes('Here is the PDF content to provide context'));
-      
-      pdfContent = '';
-      addMessage("PDF context removed", false);
-    }
-  });
   // Add this debug check
   if (typeof katex === 'undefined') {
     console.error('KaTeX is not loaded!');
