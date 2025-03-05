@@ -143,14 +143,30 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === "pdf_content") {
     console.log("Background script received PDF content from content script");
     
-    // Forward PDF content to sidebar
-    chrome.runtime.sendMessage({ 
-      action: "pdf_content", 
+    // Store the PDF content temporarily
+    const pdfData = {
       text: request.text,
       url: request.url
+    };
+
+    // Try to send to sidebar, but handle the case where it's not ready
+    chrome.runtime.sendMessage({ 
+      action: "pdf_content_for_sidebar", 
+      text: pdfData.text,
+      url: pdfData.url
     }, response => {
       if (chrome.runtime.lastError) {
-        console.error("Error forwarding PDF content to sidebar:", chrome.runtime.lastError);
+        console.log("Sidebar not ready, storing PDF content for later");
+        // Store the PDF content in chrome.storage for later retrieval
+        chrome.storage.local.set({
+          'pending_pdf_content': pdfData
+        }, () => {
+          if (chrome.runtime.lastError) {
+            console.error("Error storing PDF content:", chrome.runtime.lastError);
+          } else {
+            console.log("PDF content stored successfully");
+          }
+        });
       } else {
         console.log("PDF content forwarded to sidebar successfully");
       }
@@ -158,7 +174,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     
     // Always send a response to the content script
     sendResponse({success: true});
-    return true; // Keep the message channel open for async response
+    return true;
   }
   // Handle manual PDF check requests
   if (request.action === "check_for_pdf") {
@@ -243,18 +259,24 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Simplify the message handling in background.js
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "pdf_content") {
-    // Forward the PDF content to sidebar with a different action name
-    chrome.runtime.sendMessage({
-      action: "pdf_content_for_sidebar",
-      text: message.text,
-      url: message.url
-    }).catch(() => {
-      // Ignore errors when sidebar isn't ready
-      console.log("Sidebar not ready yet");
+// Add a listener for when the sidebar connects
+chrome.runtime.onConnect.addListener(function(port) {
+  if (port.name === "sidebar") {
+    console.log("Sidebar connected");
+    
+    // Check if we have stored PDF content
+    chrome.storage.local.get(['pending_pdf_content'], function(result) {
+      if (result.pending_pdf_content) {
+        // Send the stored content to the sidebar
+        port.postMessage({
+          action: "pdf_content_for_sidebar",
+          text: result.pending_pdf_content.text,
+          url: result.pending_pdf_content.url
+        });
+        
+        // Clear the stored content
+        chrome.storage.local.remove('pending_pdf_content');
+      }
     });
   }
-  return true; // Keep the message channel open
 }); 

@@ -1,4 +1,101 @@
 document.addEventListener('DOMContentLoaded', function() {
+  // Establish connection with background script
+  const port = chrome.runtime.connect({name: "sidebar"});
+  
+  // Listen for messages from background script
+  port.onMessage.addListener(function(message) {
+    if (message.action === "pdf_content_for_sidebar") {
+      // Add PDF content to conversation
+      conversation.push({
+        role: 'system',
+        content: 'Here is the PDF content to provide context for user questions. Use this content to answer questions:\n\n' + message.text
+      });
+      
+      // Automatically request a summary
+      conversation.push({ 
+        role: 'user', 
+        content: 'Analyze and explain a scientific paper in an accessible format, breaking down complex research into understandable components while preserving technical accuracy.\n\n' +
+          'The response should be formatted in markdown with the following structure:\n\n' +
+          '# Paper Title\n' +
+          '[📄 Paper]({pdf_url}) | [💻 Code](url)\n\n' +
+          '## Abstract\n\n' +
+          '## Summary in Simple Terms\n\n' +
+          '## Main Contributions\n' +
+          '1. \n' +
+          '2. \n' +
+          '...\n\n' +
+          '## Background & Significance\n\n' +
+          '## Algorithm Steps\n' +
+          '1. Input Processing:\n' +
+          '   1. \n' +
+          '   2. \n' +
+          '...\n' +
+          '2. Training:\n' +
+          '   1. \n' +
+          '   2. \n' +
+          '...\n' +
+          '3. Inference:\n' +
+          '   1. \n' +
+          '   2. \n' +
+          '...\n\n' +
+          '## Advantages Over Previous Works\n' +
+          '- \n' +
+          '- ...\n\n' +
+          '## Limitations\n' +
+          '1. \n' +
+          '2. \n' +
+          '...\n\n' +
+          '## Technical Terms\n' +
+          '- **Term1**: definition\n' +
+          '- **Term2**: definition\n' +
+          '...\n\n' +
+          'Include the original paper URL which is {pdf_url}.\n' +
+          'Maintain scientific accuracy while making explanations accessible.\n\n' +
+          'For each research paper, provide:\n\n' +
+          '1. The title at the top, formatted as a main heading\n' +
+          '2. Publishing organizations that released the paper\n' +
+          '3. Specific keywords as tags that reflect unique methods, applications, or contributions\n' +
+          '4. The official abstract copied from the paper\n' +
+          '5. A simplified explanation in layman\'s terms\n' +
+          '6. A clear list of the paper\'s main contributions\n' +
+          '7. Relevant background information explaining why this research is important now\n' +
+          '8. A step-by-step breakdown of the main algorithm or methodology\n' +
+          '9. Comparisons to previous work, highlighting improvements\n' +
+          '10. Honest assessment of the paper\'s limitations\n' +
+          '11. Definitions of specialized technical terms\n' +
+          '12. Links to both the original paper and code repository (if available)\n\n' +
+          'The analysis should help readers understand both the technical details and practical significance of the research without requiring expert-level knowledge in the field.'
+      });
+      
+      // Show summarizing indicator
+      const typingIndicator = document.createElement('div');
+      typingIndicator.className = 'response-message typing-indicator';
+      typingIndicator.textContent = 'Summarizing...';
+      chatMessages.appendChild(typingIndicator);
+      
+      // Get API key and call OpenAI
+      chrome.storage.local.get(['openai_api_key'], async function(result) {
+        const apiKey = result.openai_api_key;
+        if (!apiKey) {
+          chatMessages.removeChild(typingIndicator);
+          addMessage("Please add your OpenAI API key in settings to enable chat functionality.", false);
+          settingsModal.style.display = 'block';
+          return;
+        }
+
+        try {
+          const aiResponse = await callOpenAI(apiKey, conversation);
+          chatMessages.removeChild(typingIndicator);
+          addMessage(aiResponse, false);
+          conversation.push({ role: 'assistant', content: aiResponse });
+        } catch (error) {
+          chatMessages.removeChild(typingIndicator);
+          addMessage(`Error: ${error.message}`, false);
+        }
+      });
+    }
+  });
+
   // Add this debug check
   if (typeof katex === 'undefined') {
     console.error('KaTeX is not loaded!');
