@@ -160,6 +160,7 @@ h1 {
 
 .form-group {
   margin-bottom: 15px;
+  padding: 0 20px;  /* Added padding to match modal content padding */
 }
 
 .form-group label {
@@ -168,10 +169,15 @@ h1 {
 }
 
 .form-group input {
-  width: 100%;
+  width: calc(100% - 40px);  /* Adjusted width to account for padding */
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
+}
+
+/* Adjust buttons container to align with input */
+#save-api-key, #clear-api-key {
+  margin-left: 20px;  /* Added to align with form group padding */
 }
 
 #save-api-key, #clear-api-key {
@@ -190,6 +196,7 @@ h1 {
 
 .save-status {
   margin-top: 10px;
+  margin-left: 20px;  /* Added to align with form group padding */
   font-size: 14px;
 }
 
