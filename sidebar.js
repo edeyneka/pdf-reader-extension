@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const saveApiKeyButton = document.getElementById('save-api-key');
   const clearApiKeyButton = document.getElementById('clear-api-key');
   const saveStatus = document.getElementById('save-status');
+  const autoSummarizeToggle = document.getElementById('auto-summarize');
 
   // A global conversation array to store system, user, and assistant messages
   let conversation = [
@@ -66,95 +67,97 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageListener = (message) => {
           if (message.action === "pdf_content_for_sidebar") {
             pdfContent = message.text;
-            // Add PDF content to conversation
             conversation.push({
               role: 'system',
               content: 'Here is the PDF content to provide context for user questions. Use this content to answer questions:\n\n' + pdfContent
             });
             
-            // Remove the listener
             chrome.runtime.onMessage.removeListener(messageListener);
             
-            // Automatically request a summary
-            conversation.push({ 
-              role: 'user', 
-              content: 'Analyze and explain a scientific paper in an accessible format, breaking down complex research into understandable components while preserving technical accuracy.\n\n' +
-                'The response should be formatted in markdown with the following structure:\n\n' +
-                '# Paper Title\n' +
-                '[📄 Paper]({pdf_url}) | [💻 Code](url)\n\n' +
-                '## Abstract\n\n' +
-                '## Summary in Simple Terms\n\n' +
-                '## Main Contributions\n' +
-                '1. \n' +
-                '2. \n' +
-                '...\n\n' +
-                '## Background & Significance\n\n' +
-                '## Algorithm Steps\n' +
-                '1. Input Processing:\n' +
-                '   1. \n' +
-                '   2. \n' +
-                '...\n' +
-                '2. Training:\n' +
-                '   1. \n' +
-                '   2. \n' +
-                '...\n' +
-                '3. Inference:\n' +
-                '   1. \n' +
-                '   2. \n' +
-                '...\n\n' +
-                '## Advantages Over Previous Works\n' +
-                '- \n' +
-                '- ...\n\n' +
-                '## Limitations\n' +
-                '1. \n' +
-                '2. \n' +
-                '...\n\n' +
-                '## Technical Terms\n' +
-                '- **Term1**: definition\n' +
-                '- **Term2**: definition\n' +
-                '...\n\n' +
-                'Include the original paper URL which is {pdf_url}.\n' +
-                'Maintain scientific accuracy while making explanations accessible.\n\n' +
-                'For each research paper, provide:\n\n' +
-                '1. The title at the top, formatted as a main heading\n' +
-                '2. Publishing organizations that released the paper\n' +
-                '3. Specific keywords as tags that reflect unique methods, applications, or contributions\n' +
-                '4. The official abstract copied from the paper\n' +
-                '5. A simplified explanation in layman\'s terms\n' +
-                '6. A clear list of the paper\'s main contributions\n' +
-                '7. Relevant background information explaining why this research is important now\n' +
-                '8. A step-by-step breakdown of the main algorithm or methodology\n' +
-                '9. Comparisons to previous work, highlighting improvements\n' +
-                '10. Honest assessment of the paper\'s limitations\n' +
-                '11. Definitions of specialized technical terms\n' +
-                '12. Links to both the original paper and code repository (if available)\n\n' +
-                'The analysis should help readers understand both the technical details and practical significance of the research without requiring expert-level knowledge in the field.'
-            });
-            
-            // Show summarizing indicator
-            const typingIndicator = document.createElement('div');
-            typingIndicator.className = 'response-message typing-indicator';
-            typingIndicator.textContent = 'Summarizing...';
-            chatMessages.appendChild(typingIndicator);
-            
-            // Get API key and call OpenAI
-            chrome.storage.local.get(['openai_api_key'], async function(result) {
-              const apiKey = result.openai_api_key;
-              if (!apiKey) {
-                chatMessages.removeChild(typingIndicator);
-                addMessage("Please add your OpenAI API key in settings to enable chat functionality.", false);
-                settingsModal.style.display = 'block';
-                return;
-              }
+            // Check auto-summarize setting before triggering summary
+            chrome.storage.local.get(['auto_summarize'], function(result) {
+              if (result.auto_summarize) {
+                conversation.push({ 
+                  role: 'user', 
+                  content: 'Analyze and explain a scientific paper in an accessible format, breaking down complex research into understandable components while preserving technical accuracy.\n\n' +
+                    'The response should be formatted in markdown with the following structure:\n\n' +
+                    '# Paper Title\n' +
+                    '[📄 Paper]({pdf_url}) | [💻 Code](url)\n\n' +
+                    '## Abstract\n\n' +
+                    '## Summary in Simple Terms\n\n' +
+                    '## Main Contributions\n' +
+                    '1. \n' +
+                    '2. \n' +
+                    '...\n\n' +
+                    '## Background & Significance\n\n' +
+                    '## Algorithm Steps\n' +
+                    '1. Input Processing:\n' +
+                    '   1. \n' +
+                    '   2. \n' +
+                    '...\n' +
+                    '2. Training:\n' +
+                    '   1. \n' +
+                    '   2. \n' +
+                    '...\n' +
+                    '3. Inference:\n' +
+                    '   1. \n' +
+                    '   2. \n' +
+                    '...\n\n' +
+                    '## Advantages Over Previous Works\n' +
+                    '- \n' +
+                    '- ...\n\n' +
+                    '## Limitations\n' +
+                    '1. \n' +
+                    '2. \n' +
+                    '...\n\n' +
+                    '## Technical Terms\n' +
+                    '- **Term1**: definition\n' +
+                    '- **Term2**: definition\n' +
+                    '...\n\n' +
+                    'Include the original paper URL which is {pdf_url}.\n' +
+                    'Maintain scientific accuracy while making explanations accessible.\n\n' +
+                    'For each research paper, provide:\n\n' +
+                    '1. The title at the top, formatted as a main heading\n' +
+                    '2. Publishing organizations that released the paper\n' +
+                    '3. Specific keywords as tags that reflect unique methods, applications, or contributions\n' +
+                    '4. The official abstract copied from the paper\n' +
+                    '5. A simplified explanation in layman\'s terms\n' +
+                    '6. A clear list of the paper\'s main contributions\n' +
+                    '7. Relevant background information explaining why this research is important now\n' +
+                    '8. A step-by-step breakdown of the main algorithm or methodology\n' +
+                    '9. Comparisons to previous work, highlighting improvements\n' +
+                    '10. Honest assessment of the paper\'s limitations\n' +
+                    '11. Definitions of specialized technical terms\n' +
+                    '12. Links to both the original paper and code repository (if available)\n\n' +
+                    'The analysis should help readers understand both the technical details and practical significance of the research without requiring expert-level knowledge in the field.'
+                });
+                
+                // Show summarizing indicator
+                const typingIndicator = document.createElement('div');
+                typingIndicator.className = 'response-message typing-indicator';
+                typingIndicator.textContent = 'Summarizing...';
+                chatMessages.appendChild(typingIndicator);
+                
+                // Get API key and call OpenAI
+                chrome.storage.local.get(['openai_api_key'], async function(result) {
+                  const apiKey = result.openai_api_key;
+                  if (!apiKey) {
+                    chatMessages.removeChild(typingIndicator);
+                    addMessage("Please add your OpenAI API key in settings to enable chat functionality.", false);
+                    settingsModal.style.display = 'block';
+                    return;
+                  }
 
-              try {
-                const aiResponse = await callOpenAI(apiKey, conversation);
-                chatMessages.removeChild(typingIndicator);
-                addMessage(aiResponse, false);
-                conversation.push({ role: 'assistant', content: aiResponse });
-              } catch (error) {
-                chatMessages.removeChild(typingIndicator);
-                addMessage(`Error: ${error.message}`, false);
+                  try {
+                    const aiResponse = await callOpenAI(apiKey, conversation);
+                    chatMessages.removeChild(typingIndicator);
+                    addMessage(aiResponse, false);
+                    conversation.push({ role: 'assistant', content: aiResponse });
+                  } catch (error) {
+                    chatMessages.removeChild(typingIndicator);
+                    addMessage(`Error: ${error.message}`, false);
+                  }
+                });
               }
             });
           }
@@ -238,10 +241,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Load the API key if it exists
   function loadApiKey() {
-    chrome.storage.local.get(['openai_api_key'], function(result) {
+    chrome.storage.local.get(['openai_api_key', 'auto_summarize'], function(result) {
       if (result.openai_api_key) {
         apiKeyInput.value = result.openai_api_key;
       }
+      autoSummarizeToggle.checked = result.auto_summarize || false;
     });
   }
   
@@ -249,50 +253,17 @@ document.addEventListener('DOMContentLoaded', function() {
   function saveApiKey() {
     const apiKey = apiKeyInput.value.trim();
     if (apiKey) {
-      chrome.storage.local.set({ 'openai_api_key': apiKey }, function() {
-        saveStatus.textContent = 'API key saved successfully!';
+      chrome.storage.local.set({ 
+        'openai_api_key': apiKey,
+        'auto_summarize': autoSummarizeToggle.checked 
+      }, function() {
+        saveStatus.textContent = 'Settings saved successfully!';
         saveStatus.className = 'save-status success';
         setTimeout(() => {
           saveStatus.textContent = '';
         }, 3000);
         
-        // Close the settings modal
         settingsModal.style.display = 'none';
-        
-        // If we have PDF content, trigger summarization
-        if (pdfContent) {
-          // Add PDF content to conversation if not already present
-          if (!conversation.some(msg => msg.content.includes(pdfContent))) {
-            conversation.push({
-              role: 'system',
-              content: 'Here is the PDF content to provide context for user questions. Use this content to answer questions:\n\n' + pdfContent
-            });
-          }
-          
-          // Show summarizing indicator
-          const typingIndicator = document.createElement('div');
-          typingIndicator.className = 'response-message typing-indicator';
-          typingIndicator.textContent = 'Summarizing...';
-          chatMessages.appendChild(typingIndicator);
-          
-          // Add the summary request to conversation
-          conversation.push({ 
-            role: 'user', 
-            content: 'Analyze and explain a scientific paper in an accessible format...' // Your existing summary prompt
-          });
-          
-          // Call OpenAI with the conversation
-          callOpenAI(apiKey, conversation)
-            .then(aiResponse => {
-              chatMessages.removeChild(typingIndicator);
-              addMessage(aiResponse, false);
-              conversation.push({ role: 'assistant', content: aiResponse });
-            })
-            .catch(error => {
-              chatMessages.removeChild(typingIndicator);
-              addMessage(`Error: ${error.message}`, false);
-            });
-        }
       });
     } else {
       saveStatus.textContent = 'Please enter a valid API key.';
