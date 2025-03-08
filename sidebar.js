@@ -314,24 +314,22 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log(`%c${debugMsg}`, 'color: #0066cc');
   }
   
-  // Modify the processMathExpressions function
+  // Update the math processing function to handle the specific issues
   function processMathExpressions(text) {
     debugLog('Processing text for math:', text);
-
-    // Helper function to escape special characters
-    function escapeLatex(str) {
-      return str.replace(/\\/g, '\\\\')
-                .replace(/{/g, '\\{')
-                .replace(/}/g, '\\}')
-                .replace(/_/g, '\\_');
-    }
-
-    // First handle display math with double dollar signs
+    
+    // First, remove any literal "< br >" text that might be causing issues
+    text = text.replace(/< *br *>/gi, '');
+    
+    // Handle display math with double dollar signs
     text = text.replace(/\$\$(.*?)\$\$/g, (match, formula) => {
       debugLog('Found $$ math:', { match, formula });
+      
+      // Remove square brackets if present within the formula
+      const cleanedFormula = formula.replace(/\[|\]/g, '');
+      
       try {
-        // Don't escape the formula for $$ math
-        const rendered = katex.renderToString(formula, {
+        const rendered = katex.renderToString(cleanedFormula, {
           displayMode: true,
           throwOnError: false,
           strict: false
@@ -339,16 +337,15 @@ document.addEventListener('DOMContentLoaded', function() {
         debugLog('Rendered $$ math:', rendered);
         return rendered;
       } catch (error) {
-        console.error('KaTeX $$ error:', error);
-        return match;
+        console.error('KaTeX error:', error);
+        return `<div style="text-align: center; font-style: italic;">${cleanedFormula}</div>`;
       }
     });
-
-    // Then handle square bracket math
+    
+    // Handle square bracket math by removing the brackets
     text = text.replace(/\[(.*?)\]/g, (match, formula) => {
       debugLog('Found [] math:', { match, formula });
       try {
-        // Don't escape the formula for [] math
         const rendered = katex.renderToString(formula, {
           displayMode: true,
           throwOnError: false,
@@ -357,11 +354,11 @@ document.addEventListener('DOMContentLoaded', function() {
         debugLog('Rendered [] math:', rendered);
         return rendered;
       } catch (error) {
-        console.error('KaTeX [] error:', error);
-        return match;
+        console.error('KaTeX error:', error);
+        return `<div style="text-align: center; font-style: italic;">${formula}</div>`;
       }
     });
-
+    
     debugLog('Final processed text:', text);
     return text;
   }
