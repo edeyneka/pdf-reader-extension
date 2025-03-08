@@ -184,6 +184,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear the UI completely
     chatMessages.innerHTML = '';
     
+    // Save PDF context before resetting
+    const savedPdfContent = pdfContent;
+    const wasPdfPage = isPdfPage;
+    
     // Reset the conversation array
     conversation = [
       {
@@ -192,10 +196,21 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     ];
 
-    // Reset PDF state
-    pdfContent = '';
-    const pdfButton = document.getElementById('pdf-button');
-    pdfButton.setAttribute('data-active', 'false');
+    // If we're on a PDF page, restore the PDF context to the conversation
+    if (wasPdfPage && savedPdfContent) {
+      conversation.push({
+        role: 'system',
+        content: 'Here is the PDF content to provide context for user questions. Use this content to answer questions:\n\n' + savedPdfContent
+      });
+      pdfContent = savedPdfContent; // Restore the PDF content
+    } else {
+      // Only reset PDF state if not on a PDF page
+      pdfContent = '';
+      const pdfButton = document.getElementById('pdf-button');
+      if (pdfButton) {
+        pdfButton.setAttribute('data-active', 'false');
+      }
+    }
   }
 
   // Initial check for PDF
