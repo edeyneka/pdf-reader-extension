@@ -488,22 +488,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Remove typing indicator
         chatMessages.removeChild(typingIndicator);
         
-        // DEBUGGING: Show raw API response
-        const debugElement = document.createElement('div');
-        debugElement.className = 'response-message debug';
-        debugElement.style.whiteSpace = 'pre-wrap';
-        debugElement.style.fontFamily = 'monospace';
-        debugElement.style.fontSize = '12px';
-        debugElement.style.backgroundColor = '#f0f0f0';
-        debugElement.style.padding = '10px';
-        debugElement.style.margin = '10px 0';
-        debugElement.style.border = '1px solid #ccc';
-        debugElement.style.borderRadius = '5px';
-        debugElement.textContent = 'RAW API RESPONSE:\n' + aiResponse;
-        chatMessages.appendChild(debugElement);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-
-        
         // Display the AI response
         addMessage(aiResponse, false);
 
