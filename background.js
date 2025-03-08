@@ -1,8 +1,21 @@
 // This script handles the sidebar functionality
 // The setPanelState method doesn't exist - removing it
 
+// Keep track of sidebar state for tabs
+const sidebarOpenStates = new Map();
+
+// First, set the panel behavior to toggle
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+
 chrome.action.onClicked.addListener((tab) => {
-  chrome.sidePanel.open({ tabId: tab.id });
+  // The openPanelOnActionClick: true setting will handle the toggle behavior automatically
+});
+
+// Clean up when tabs are closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (sidebarOpenStates.has(tabId)) {
+    sidebarOpenStates.delete(tabId);
+  }
 });
 
 // Improved PDF detection
