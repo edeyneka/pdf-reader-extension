@@ -314,56 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log(`%c${debugMsg}`, 'color: #0066cc');
   }
   
-  // Update the math processing function to handle the specific issues
-  function processMathExpressions(text) {
-    debugLog('Processing text for math:', text);
-    
-    // First, remove any literal "< br >" text that might be causing issues
-    text = text.replace(/< *br *>/gi, '');
-    
-    // Handle display math with double dollar signs
-    text = text.replace(/\$\$(.*?)\$\$/g, (match, formula) => {
-      debugLog('Found $$ math:', { match, formula });
-      
-      // Remove square brackets if present within the formula
-      const cleanedFormula = formula.replace(/\[|\]/g, '');
-      
-      try {
-        const rendered = katex.renderToString(cleanedFormula, {
-          displayMode: true,
-          throwOnError: false,
-          strict: false
-        });
-        debugLog('Rendered $$ math:', rendered);
-        return rendered;
-      } catch (error) {
-        console.error('KaTeX error:', error);
-        return `<div style="text-align: center; font-style: italic;">${cleanedFormula}</div>`;
-      }
-    });
-    
-    // Handle square bracket math by removing the brackets
-    text = text.replace(/\[(.*?)\]/g, (match, formula) => {
-      debugLog('Found [] math:', { match, formula });
-      try {
-        const rendered = katex.renderToString(formula, {
-          displayMode: true,
-          throwOnError: false,
-          strict: false
-        });
-        debugLog('Rendered [] math:', rendered);
-        return rendered;
-      } catch (error) {
-        console.error('KaTeX error:', error);
-        return `<div style="text-align: center; font-style: italic;">${formula}</div>`;
-      }
-    });
-    
-    debugLog('Final processed text:', text);
-    return text;
-  }
-  
-  // Modify the addMessage function
+  // Modify the addMessage function to pre-process math before markdown
   function addMessage(text, isUser) {
     debugLog('Adding message:', { text, isUser });
     const messageElement = document.createElement('div');
@@ -372,26 +323,90 @@ document.addEventListener('DOMContentLoaded', function() {
     if (isUser) {
       messageElement.textContent = text;
     } else {
-      debugLog('Processing AI response');
+      debugLog('Processing AI response with new math handling');
       
-      // First protect math expressions from markdown processing
-      const protectedText = text.replace(/(\$\$.*?\$\$|\[.*?\])/g, match => {
-        return match.replace(/[_*]/g, '\\$&');
+      // Preserve code blocks first
+      const codeBlocks = [];
+      let processedText = text.replace(/```([\s\S]+?)```/g, (match) => {
+        codeBlocks.push(match);
+        return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
       });
       
-      // Process markdown first
-      const markedText = marked.parse(protectedText);
-      debugLog('Markdown processed text:', markedText);
+      // Remove any literal "< br >" text
+      processedText = processedText.replace(/< *br *>/gi, '');
       
-      // Then process math expressions
-      const processedText = processMathExpressions(markedText);
-      debugLog('Math processed text:', processedText);
+      // PRE-PROCESS: Convert all math notations to HTML before markdown processing
       
-      // Clean up unwanted br tags around math expressions
-      const cleanedText = processedText.replace(/<br>\s*(<span class="math-wrapper">.*?<\/span>)\s*<br>/g, '$1');
+      // 1. Handle display math with double dollar signs
+      processedText = processedText.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+        try {
+          return `<div class="math-block">${katex.renderToString(formula.trim(), {
+            displayMode: true,
+            throwOnError: false
+          })}</div>`;
+        } catch (error) {
+          return `<div class="math-block-fallback">${formula.trim()}</div>`;
+        }
+      });
       
-      messageElement.innerHTML = cleanedText;
-
+      // 2. Handle display math with \[...\]
+      processedText = processedText.replace(/\\\[([\s\S]*?)\\\]/g, (match, formula) => {
+        try {
+          return `<div class="math-block">${katex.renderToString(formula.trim(), {
+            displayMode: true,
+            throwOnError: false
+          })}</div>`;
+        } catch (error) {
+          return `<div class="math-block-fallback">${formula.trim()}</div>`;
+        }
+      });
+      
+      // 3. Handle inline math with \(...\) - using a more robust regex
+      processedText = processedText.replace(/\\\(([^\)]+?)\\\)/g, (match, formula) => {
+        try {
+          return katex.renderToString(formula.trim(), {
+            displayMode: false,
+            throwOnError: false
+          });
+        } catch (error) {
+          return `<span class="math-inline-fallback">${formula.trim()}</span>`;
+        }
+      });
+      
+      // 4. Special case for N_j, theta_j, etc. - direct text replacement
+      processedText = processedText.replace(/\\theta_j/g, 'θ<sub>j</sub>');
+      processedText = processedText.replace(/\\theta/g, 'θ');
+      processedText = processedText.replace(/N_j/g, 'N<sub>j</sub>');
+      
+      // Process with markdown
+      processedText = marked.parse(processedText);
+      
+      // Restore code blocks
+      codeBlocks.forEach((block, index) => {
+        processedText = processedText.replace(`__CODE_BLOCK_${index}__`, block);
+      });
+      
+      // Add custom styles for math rendering
+      const style = document.createElement('style');
+      style.textContent = `
+        .math-block, .math-block-fallback {
+          text-align: center;
+          margin: 1em 0;
+          padding: 0.5em;
+        }
+        .math-block-fallback, .math-inline-fallback {
+          font-family: 'Latin Modern Math', 'Times New Roman', serif;
+          font-style: italic;
+        }
+        .math-block-fallback {
+          background-color: #f8f8f8;
+          border-radius: 4px;
+        }
+      `;
+      document.head.appendChild(style);
+      
+      messageElement.innerHTML = processedText;
+      
       // Add click event listener for links
       messageElement.addEventListener('click', handleLinkClick);
     }
@@ -472,6 +487,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Remove typing indicator
         chatMessages.removeChild(typingIndicator);
+        
+        // DEBUGGING: Show raw API response
+        const debugElement = document.createElement('div');
+        debugElement.className = 'response-message debug';
+        debugElement.style.whiteSpace = 'pre-wrap';
+        debugElement.style.fontFamily = 'monospace';
+        debugElement.style.fontSize = '12px';
+        debugElement.style.backgroundColor = '#f0f0f0';
+        debugElement.style.padding = '10px';
+        debugElement.style.margin = '10px 0';
+        debugElement.style.border = '1px solid #ccc';
+        debugElement.style.borderRadius = '5px';
+        debugElement.textContent = 'RAW API RESPONSE:\n' + aiResponse;
+        chatMessages.appendChild(debugElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
         
         // Display the AI response
         addMessage(aiResponse, false);
