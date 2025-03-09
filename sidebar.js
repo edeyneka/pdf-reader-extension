@@ -136,7 +136,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const responseContainer = document.createElement('div');
                 responseContainer.className = 'response-message';
                 chatMessages.appendChild(responseContainer);
-                responseContainer.textContent = 'Summarizing...';
                 
                 // Get API key and call OpenAI
                 chrome.storage.local.get(['openai_api_key'], async function(result) {
