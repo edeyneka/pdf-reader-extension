@@ -535,4 +535,11 @@ document.addEventListener('DOMContentLoaded', function() {
   } else {
     debugLog('KaTeX version:', katex.version);
   }
+
+  // Check for API key immediately when sidebar loads
+  chrome.storage.local.get(['openai_api_key'], function(result) {
+    if (!result.openai_api_key) {
+      settingsModal.style.display = 'block';
+    }
+  });
 });

@@ -28,7 +28,7 @@ A Chrome extension that allows you to chat with PDFs using AI. Currently support
    - Click the gear icon
    - Enter your API key
    - Save settings
-
+4. If you changed settings, you need to reload the extension by closing and opening it again.
 
 ## Contact
 Kate - [@deyneka_e](https:/x.com/deyneka_e) - kvdeyneka@gmail.com
