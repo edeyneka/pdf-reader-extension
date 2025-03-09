@@ -1,7 +1,7 @@
 # PDF AI Reader Chrome Extension
 
 <p align="center">
-  <img src="icons/pdf_extension.png" alt="PDF AI Reader Logo" width="128" height="128">
+  <img src="icons/pdf_extension.png" alt="PDF AI Reader Logo">
 </p>
 
 ## Description
