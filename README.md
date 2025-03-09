@@ -1,7 +1,7 @@
 # PDF AI Reader Chrome Extension
 
 <p align="center">
-  <img src="icons/pdf_extension.png" alt="PDF AI Reader Logo">
+  <img src="icons/pdf_extension.jpg" alt="PDF AI Reader Logo">
 </p>
 
 ## Description
@@ -32,4 +32,5 @@ A Chrome extension that allows you to chat with PDFs using AI. Currently support
 
 ## Contact
 Kate - [@deyneka_e](https:/x.com/deyneka_e) - kvdeyneka@gmail.com
+
 Don't forget to star the repository if you like it ⭐
