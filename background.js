@@ -162,39 +162,35 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       url: request.url
     };
 
-    // Try to send to sidebar, but handle the case where it's not ready
-    chrome.runtime.sendMessage({ 
-      action: "pdf_content_for_sidebar", 
-      text: pdfData.text,
-      url: pdfData.url
-    }, response => {
-      if (chrome.runtime.lastError) {
-        console.log("Sidebar not ready, storing PDF content for later");
-        // Store the PDF content in chrome.storage for later retrieval
-        chrome.storage.local.set({
-          'pending_pdf_content': pdfData
-        }, () => {
-          if (chrome.runtime.lastError) {
-            console.error("Error storing PDF content:", chrome.runtime.lastError);
-          } else {
-            console.log("PDF content stored successfully");
-          }
-        });
-      } else {
-        console.log("PDF content forwarded to sidebar successfully");
-      }
-    });
+    // Send to sidebar immediately
+    try {
+      chrome.runtime.sendMessage({ 
+        action: "pdf_content_for_sidebar", 
+        text: pdfData.text,
+        url: pdfData.url
+      });
+      
+      // Store as backup in case sidebar isn't ready
+      chrome.storage.local.set({
+        'pending_pdf_content': pdfData
+      });
+      
+      // Send response immediately
+      sendResponse({success: true});
+    } catch (error) {
+      console.error("Error handling PDF content:", error);
+      sendResponse({success: false, error: error.message});
+    }
     
-    // Always send a response to the content script
-    sendResponse({success: true});
-    return true;
+    return false; // Don't keep message channel open
   }
+  
   // Handle manual PDF check requests
   if (request.action === "check_for_pdf") {
+    // Execute immediately and don't keep channel open
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
       if (tabs && tabs[0]) {
         const activeTab = tabs[0];
-        // The same script that's in the sidebar.js will execute here
         chrome.scripting.executeScript({
           target: { tabId: activeTab.id },
           function: checkForPdfContent
@@ -207,6 +203,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
           } else {
             chrome.runtime.sendMessage({ action: "not_pdf" });
           }
+          sendResponse({success: true});
         }).catch(err => {
           console.error("Error executing script:", err);
           chrome.runtime.sendMessage({ 
@@ -214,33 +211,28 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             text: "Error checking for PDF: " + err.message,
             url: tabs[0].url
           });
+          sendResponse({success: false, error: err.message});
         });
       }
     });
-    return true; // Keep the message channel open
+    return false; // Don't keep message channel open
   }
+  
   // Handle PDF fetching
   if (request.action === "fetch_pdf") {
-    console.log("Fetching PDF from URL:", request.url);
-    
-    // Fetch the PDF binary data
     fetch(request.url)
       .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
+        if (!response.ok) throw new Error('Network response was not ok');
         return response.arrayBuffer();
       })
       .then(arrayBuffer => {
-        // Convert ArrayBuffer to Base64
         const base64String = arrayBufferToBase64(arrayBuffer);
-        
-        // Send the base64 string to the sidebar
         chrome.runtime.sendMessage({
           action: "pdf_base64",
           url: request.url,
           base64Data: base64String
         });
+        sendResponse({success: true});
       })
       .catch(error => {
         console.error("Error fetching PDF:", error);
@@ -248,10 +240,12 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
           action: "pdf_error",
           error: error.message
         });
+        sendResponse({success: false, error: error.message});
       });
-    
-    return true; // Keeps the message channel open for async response
+    return false; // Don't keep message channel open
   }
+  
+  return false; // Default: don't keep message channel open
 });
 
 // Helper function to convert ArrayBuffer to Base64
