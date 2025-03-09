@@ -33,9 +33,9 @@
         <label for="api-key">OpenAI API Key:</label>
         <input type="password" id="api-key" placeholder="Enter your OpenAI API key">
       </div>
-      <div class="form-group" style="position: relative;">
-        <div style="display: inline-block;">Auto-summarize PDFs</div>
-        <input type="checkbox" id="auto-summarize" name="auto-summarize" style="position: absolute; left: 0px; top: 0; margin: 0;">
+      <div class="checkbox-container">
+        <input type="checkbox" id="auto-summarize" name="auto-summarize">
+        <label for="auto-summarize">Auto-summarize PDFs</label>
       </div>
       <button id="save-api-key" class="api-button">Save</button>
       <button id="clear-api-key" class="api-button">Clear</button>

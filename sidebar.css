@@ -356,4 +356,19 @@ h1 {
 /* Ensure proper spacing between elements */
 .response-message > *:not(:last-child) {
   margin-bottom: 0.5em;
+}
+
+/* Add this CSS for the auto-summarize checkbox */
+#auto-summarize {
+  float: left;
+  margin-left: 8px;
+}
+
+/* Add a container for the checkbox and its label */
+.checkbox-container {
+  text-align: left;
+  display: flex;
+  align-items: center;
+  margin: 10px 0;
+  padding: 0 15px;
 } 
