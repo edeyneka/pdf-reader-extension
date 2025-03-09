@@ -1,34 +1,33 @@
-# Project Name
+# PDF AI Reader Chrome Extension
+
+<p align="center">
+  <img src="icons/pdf_extension.png" alt="PDF AI Reader Logo" width="128" height="128">
+</p>
 
 ## Description
-A brief description of what this project does and who it's for.
+A Chrome extension that allows you to chat with PDFs using AI. Currently supports only OpenAI GPT-4o model. 
 
 ## Installation
 
-### Chrome/Edge/Brave (Chromium-based browsers)
 1. Download or clone this repository
 2. Open your browser and navigate to `chrome://extensions/`
 3. Enable "Developer mode" (usually a toggle in the top-right corner)
 4. Click "Load unpacked" and select the directory containing this extension
 5. The extension should now appear in your browser toolbar
 
-### Firefox
-1. Download or clone this repository
-2. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`
-3. Click "Load Temporary Add-on..."
-4. Select the `manifest.json` file from the extension directory
-5. The extension should now appear in your browser toolbar
-
 ## Features
-- Feature 1
-- Feature 2
-- Feature 3
+- Chat with PDFs using AI powered by OpenAI's GPT-4o model
+- Auto-summarization of PDFs with custom prompt (developed specifically for AI/ML papers)
+- Persistent PDF context even after clearing chat history
+- Easy-to-use interface integrated directly into your PDF viewing experience
 
 ## Usage
-Explain how to use the extension, including:
-- How to access it
-- Available settings and options
-- Any keyboard shortcuts
+1. Click the extension icon in your browser toolbar to activate
+2. Open any PDF file in your Chrome browser
+3. Configure your OpenAI API key in the extension settings:
+   - Click the gear icon
+   - Enter your API key
+   - Save settings
 
 
 ## Contact
