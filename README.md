@@ -10,7 +10,7 @@ Chrome extension that allows you to chat with PDFs using AI. Currently supports 
 ## Installation
 
 1. Download or clone this repository. Or you can download the zip file from [here](https://drive.google.com/file/d/1kgajVss5kmyvFrumF_9S8YJhYNdTPN5B/view?usp=sharing) and then unpack it.
-2. Open your browser and navigate to `chrome://extensions/`
+2. Open your browser and navigate to [chrome://extensions/](chrome://extensions/)
 3. Enable "Developer mode" (usually a toggle in the top-right corner)
 4. Click "Load unpacked" and select the directory containing this extension
 5. The extension should now appear in your browser toolbar
