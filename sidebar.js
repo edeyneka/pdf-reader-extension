@@ -525,9 +525,66 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let responseText = '';
     
-    const processMarkdown = debounce((text) => {
-      // Don't use HTML entities for space preservation
-      responseContainer.innerHTML = marked.parse(text);
+    const processStreamingResponse = debounce((text) => {
+      // Preserve code blocks first
+      const codeBlocks = [];
+      let processedText = text.replace(/```([\s\S]+?)```/g, (match) => {
+        codeBlocks.push(match);
+        return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
+      });
+      
+      // Remove any literal "< br >" text
+      processedText = processedText.replace(/< *br *>/gi, '');
+      
+      // Process math formulas
+      processedText = processedText.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+        try {
+          return `<div class="math-block">${katex.renderToString(formula.trim(), {
+            displayMode: true,
+            throwOnError: false
+          })}</div>`;
+        } catch (error) {
+          return `<div class="math-block-fallback">${formula.trim()}</div>`;
+        }
+      });
+      
+      // Handle other math notations
+      processedText = processedText.replace(/\\\[([\s\S]*?)\\\]/g, (match, formula) => {
+        try {
+          return `<div class="math-block">${katex.renderToString(formula.trim(), {
+            displayMode: true,
+            throwOnError: false
+          })}</div>`;
+        } catch (error) {
+          return `<div class="math-block-fallback">${formula.trim()}</div>`;
+        }
+      });
+      
+      processedText = processedText.replace(/\\\(([^\)]+?)\\\)/g, (match, formula) => {
+        try {
+          return katex.renderToString(formula.trim(), {
+            displayMode: false,
+            throwOnError: false
+          });
+        } catch (error) {
+          return `<span class="math-inline-fallback">${formula.trim()}</span>`;
+        }
+      });
+      
+      // Special cases
+      processedText = processedText.replace(/\\theta_j/g, 'θ<sub>j</sub>');
+      processedText = processedText.replace(/\\theta/g, 'θ');
+      processedText = processedText.replace(/N_j/g, 'N<sub>j</sub>');
+      
+      // Process with markdown
+      processedText = marked.parse(processedText);
+      
+      // Restore code blocks
+      codeBlocks.forEach((block, index) => {
+        processedText = processedText.replace(`__CODE_BLOCK_${index}__`, block);
+      });
+      
+      responseContainer.innerHTML = processedText;
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }, 50);
 
@@ -544,7 +601,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         for await (const chunk of stream.streamResponse()) {
           responseText += chunk;
-          processMarkdown(responseText);  // Process the entire text each time
+          processStreamingResponse(responseText);
         }
 
         conversation.push({ role: 'assistant', content: responseText });
