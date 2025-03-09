@@ -132,30 +132,54 @@ document.addEventListener('DOMContentLoaded', function() {
                     'The analysis should help readers understand both the technical details and practical significance of the research without requiring expert-level knowledge in the field.'
                 });
                 
-                // Show summarizing indicator
-                const typingIndicator = document.createElement('div');
-                typingIndicator.className = 'response-message typing-indicator';
-                typingIndicator.textContent = 'Summarizing...';
-                chatMessages.appendChild(typingIndicator);
+                // Create a response container for the summary
+                const responseContainer = document.createElement('div');
+                responseContainer.className = 'response-message';
+                chatMessages.appendChild(responseContainer);
+                responseContainer.textContent = 'Summarizing...';
                 
                 // Get API key and call OpenAI
                 chrome.storage.local.get(['openai_api_key'], async function(result) {
                   const apiKey = result.openai_api_key;
                   if (!apiKey) {
-                    chatMessages.removeChild(typingIndicator);
-                    addMessage("Please add your OpenAI API key in settings to enable chat functionality.", false);
+                    responseContainer.textContent = "Please add your OpenAI API key in settings to enable chat functionality.";
                     settingsModal.style.display = 'block';
                     return;
                   }
 
                   try {
-                    const aiResponse = await callOpenAI(apiKey, conversation);
-                    chatMessages.removeChild(typingIndicator);
-                    addMessage(aiResponse, false);
-                    conversation.push({ role: 'assistant', content: aiResponse });
+                    const stream = await callOpenAI(apiKey, conversation);
+                    let responseText = '';
+                    let markdownBuffer = '';
+                    
+                    const processMarkdown = debounce((text) => {
+                      responseContainer.innerHTML = marked.parse(text);
+                      chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }, 50);
+
+                    for await (const chunk of stream.streamResponse()) {
+                      responseText += chunk;
+                      markdownBuffer += chunk;
+                      processMarkdown(markdownBuffer);
+                    }
+
+                    // Final markdown processing
+                    processMarkdown(responseText);
+                    
+                    // Add the complete response to conversation
+                    conversation.push({ role: 'assistant', content: responseText });
+                    
+                    // Add click event listener for links
+                    responseContainer.addEventListener('click', handleLinkClick);
+                    
+                    // Apply syntax highlighting if there are code blocks
+                    if (responseContainer.querySelectorAll('pre code').length > 0) {
+                      responseContainer.querySelectorAll('pre code').forEach(block => {
+                        block.classList.add('code-block');
+                      });
+                    }
                   } catch (error) {
-                    chatMessages.removeChild(typingIndicator);
-                    addMessage(`Error: ${error.message}`, false);
+                    responseContainer.textContent = `Error: ${error.message}`;
                   }
                 });
               }
@@ -437,7 +461,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
-  // Call the OpenAI API with the entire conversation
+  // Modify the callOpenAI function to support streaming
   async function callOpenAI(apiKey, conversation) {
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -449,71 +473,165 @@ document.addEventListener('DOMContentLoaded', function() {
         body: JSON.stringify({
           model: 'gpt-4o',
           messages: conversation,
-          max_tokens: 1000
+          max_tokens: 1000,
+          stream: true
         })
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error?.message || 'API request failed');
       }
-      
-      const data = await response.json();
-      return data.choices[0]?.message?.content || 'No response from API';
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let wordBuffer = '';
+      let fullResponse = '';
+
+      return {
+        async *streamResponse() {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                // Yield any remaining content in the word buffer
+                if (wordBuffer) {
+                  fullResponse += wordBuffer;
+                  yield wordBuffer;
+                }
+                break;
+              }
+
+              buffer += decoder.decode(value);
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                if (line.trim() === '') continue;
+                if (line.trim() === 'data: [DONE]') return;
+
+                try {
+                  const json = JSON.parse(line.replace(/^data: /, ''));
+                  const content = json.choices[0]?.delta?.content || '';
+                  
+                  if (content) {
+                    wordBuffer += content;
+                    
+                    // Check for complete words (space, punctuation, or newline)
+                    const words = wordBuffer.match(/[^\s\n]+[\s\n]*|[\r\n]+/g);
+                    
+                    if (words) {
+                      // Keep the last partial word in the buffer
+                      const lastWord = words[words.length - 1];
+                      const completeWords = words.slice(0, -1).join('');
+                      
+                      if (completeWords) {
+                        fullResponse += completeWords;
+                        yield completeWords;
+                      }
+                      
+                      // If the last word ends with space/newline, emit it too
+                      if (lastWord.match(/[\s\n]$/)) {
+                        fullResponse += lastWord;
+                        yield lastWord;
+                        wordBuffer = '';
+                      } else {
+                        wordBuffer = lastWord;
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.error('Error parsing JSON:', e);
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
+        },
+        getFullResponse() {
+          return fullResponse;
+        }
+      };
     } catch (error) {
       console.error('Error calling OpenAI API:', error);
-      return `Error: ${error.message}`;
+      throw error;
     }
   }
   
-  // Handle sending a message
-  function handleSendMessage() {
+  // Modify handleSendMessage to handle streaming
+  async function handleSendMessage() {
     const userMessage = chatInput.value.trim();
-    if (!userMessage) return; // don't send empty messages
-    
-    // Clear the input and show the user's message
+    if (!userMessage) return;
+
     chatInput.value = '';
     addMessage(userMessage, true);
-
-    // Add user message to the conversation array
     conversation.push({ role: 'user', content: userMessage });
-    
-    // Show typing indicator
-    const typingIndicator = document.createElement('div');
-    typingIndicator.className = 'response-message typing-indicator';
-    typingIndicator.textContent = 'Typing...';
-    chatMessages.appendChild(typingIndicator);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    
-    // Fetch the API key and call OpenAI
+
+    // Create a response message container
+    const responseContainer = document.createElement('div');
+    responseContainer.className = 'response-message';
+    chatMessages.appendChild(responseContainer);
+
+    let responseText = '';
+    let markdownBuffer = '';
+    const processMarkdown = debounce((text) => {
+      responseContainer.innerHTML = marked.parse(text);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }, 50);
+
     chrome.storage.local.get(['openai_api_key'], async function(result) {
       const apiKey = result.openai_api_key;
       if (!apiKey) {
-        // No API key, prompt the user to add one
-        chatMessages.removeChild(typingIndicator);
-        addMessage("Please add your OpenAI API key in settings to enable chat functionality.", false);
+        responseContainer.textContent = "Please add your OpenAI API key in settings to enable chat functionality.";
         settingsModal.style.display = 'block';
         return;
       }
 
-      // We have an API key, call the API with the entire conversation array
       try {
-        const aiResponse = await callOpenAI(apiKey, conversation);
+        const stream = await callOpenAI(apiKey, conversation);
         
-        // Remove typing indicator
-        chatMessages.removeChild(typingIndicator);
+        for await (const chunk of stream.streamResponse()) {
+          responseText += chunk;
+          markdownBuffer += chunk;
+          
+          // Process markdown periodically
+          processMarkdown(markdownBuffer);
+        }
+
+        // Final markdown processing
+        processMarkdown(responseText);
         
-        // Display the AI response
-        addMessage(aiResponse, false);
-
-        // Add the assistant response to conversation
-        conversation.push({ role: 'assistant', content: aiResponse });
-
+        // Add the complete response to conversation
+        conversation.push({ role: 'assistant', content: responseText });
+        
+        // Add click event listener for links
+        responseContainer.addEventListener('click', handleLinkClick);
+        
+        // Apply syntax highlighting if there are code blocks
+        if (responseContainer.querySelectorAll('pre code').length > 0) {
+          responseContainer.querySelectorAll('pre code').forEach(block => {
+            block.classList.add('code-block');
+          });
+        }
       } catch (error) {
-        chatMessages.removeChild(typingIndicator);
-        addMessage(`Error: ${error.message}`, false);
+        responseContainer.textContent = `Error: ${error.message}`;
       }
     });
+  }
+  
+  // Add a debounce utility function
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
   }
   
   // Send button click
