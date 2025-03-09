@@ -241,28 +241,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Configure marked.js options
   marked.setOptions({
-    breaks: true,
-    gfm: true,
+    breaks: true,  // Enable line breaks
+    gfm: true,     // Enable GitHub Flavored Markdown
     headerIds: false,
-    mangle: false,
-    extensions: [{
-      name: 'math',
-      level: 'block',
-      tokenizer(src) {
-        const mathMatch = src.match(/^\$\$(.*?)\$\$|\[(.*?)\]/);
-        if (mathMatch) {
-          return {
-            type: 'math',
-            raw: mathMatch[0],
-            text: mathMatch[1] || mathMatch[2],
-            tokens: []
-          };
-        }
-      },
-      renderer(token) {
-        return `<span class="math-wrapper">${token.raw}</span>`;
-      }
-    }]
+    mangle: false
   });
 
   // Add this after the marked.setOptions configuration
@@ -485,22 +467,14 @@ document.addEventListener('DOMContentLoaded', function() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let wordBuffer = '';
       let fullResponse = '';
 
       return {
-        async *streamResponse() {
+        async* streamResponse() {
           try {
             while (true) {
               const { done, value } = await reader.read();
-              if (done) {
-                // Yield any remaining content in the word buffer
-                if (wordBuffer) {
-                  fullResponse += wordBuffer;
-                  yield wordBuffer;
-                }
-                break;
-              }
+              if (done) break;
 
               buffer += decoder.decode(value);
               const lines = buffer.split('\n');
@@ -513,32 +487,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 try {
                   const json = JSON.parse(line.replace(/^data: /, ''));
                   const content = json.choices[0]?.delta?.content || '';
-                  
                   if (content) {
-                    wordBuffer += content;
-                    
-                    // Check for complete words (space, punctuation, or newline)
-                    const words = wordBuffer.match(/[^\s\n]+[\s\n]*|[\r\n]+/g);
-                    
-                    if (words) {
-                      // Keep the last partial word in the buffer
-                      const lastWord = words[words.length - 1];
-                      const completeWords = words.slice(0, -1).join('');
-                      
-                      if (completeWords) {
-                        fullResponse += completeWords;
-                        yield completeWords;
-                      }
-                      
-                      // If the last word ends with space/newline, emit it too
-                      if (lastWord.match(/[\s\n]$/)) {
-                        fullResponse += lastWord;
-                        yield lastWord;
-                        wordBuffer = '';
-                      } else {
-                        wordBuffer = lastWord;
-                      }
-                    }
+                    fullResponse += content;
+                    yield content;
                   }
                 } catch (e) {
                   console.error('Error parsing JSON:', e);
@@ -568,14 +519,14 @@ document.addEventListener('DOMContentLoaded', function() {
     addMessage(userMessage, true);
     conversation.push({ role: 'user', content: userMessage });
 
-    // Create a response message container
     const responseContainer = document.createElement('div');
     responseContainer.className = 'response-message';
     chatMessages.appendChild(responseContainer);
 
     let responseText = '';
-    let markdownBuffer = '';
+    
     const processMarkdown = debounce((text) => {
+      // Don't use HTML entities for space preservation
       responseContainer.innerHTML = marked.parse(text);
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }, 50);
@@ -593,22 +544,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         for await (const chunk of stream.streamResponse()) {
           responseText += chunk;
-          markdownBuffer += chunk;
-          
-          // Process markdown periodically
-          processMarkdown(markdownBuffer);
+          processMarkdown(responseText);  // Process the entire text each time
         }
 
-        // Final markdown processing
-        processMarkdown(responseText);
-        
-        // Add the complete response to conversation
         conversation.push({ role: 'assistant', content: responseText });
         
-        // Add click event listener for links
         responseContainer.addEventListener('click', handleLinkClick);
         
-        // Apply syntax highlighting if there are code blocks
         if (responseContainer.querySelectorAll('pre code').length > 0) {
           responseContainer.querySelectorAll('pre code').forEach(block => {
             block.classList.add('code-block');
