@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('KaTeX loaded successfully');
   }
 
+  // Initialize UI elements
   const chatInput = document.getElementById('chat-input');
   const sendButton = document.getElementById('send-button');
   const chatMessages = document.getElementById('chat-messages');
@@ -32,6 +33,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const clearApiKeyButton = document.getElementById('clear-api-key');
   const saveStatus = document.getElementById('save-status');
   const autoSummarizeToggle = document.getElementById('auto-summarize');
+
+  // Clear any existing content in chat messages
+  chatMessages.innerHTML = '';
 
   // A global conversation array to store system, user, and assistant messages
   let conversation = [
@@ -141,7 +145,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 chrome.storage.local.get(['openai_api_key'], async function(result) {
                   const apiKey = result.openai_api_key;
                   if (!apiKey) {
-                    responseContainer.textContent = "Please add your OpenAI API key in settings to enable chat functionality.";
+                    // Remove the response container if no API key
+                    responseContainer.remove();
                     settingsModal.style.display = 'block';
                     return;
                   }
@@ -265,7 +270,8 @@ document.addEventListener('DOMContentLoaded', function() {
       if (result.openai_api_key) {
         apiKeyInput.value = result.openai_api_key;
       }
-      autoSummarizeToggle.checked = result.auto_summarize || false;
+      // Set auto-summarize to true by default if it hasn't been explicitly set to false
+      autoSummarizeToggle.checked = result.auto_summarize !== false;
     });
   }
   
@@ -276,7 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
       chrome.storage.local.set({ 
         'openai_api_key': apiKey,
         'auto_summarize': autoSummarizeToggle.checked 
-      }, function() {
+      }, async function() {
         saveStatus.textContent = 'Settings saved successfully!';
         saveStatus.className = 'save-status success';
         setTimeout(() => {
@@ -284,6 +290,52 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 3000);
         
         settingsModal.style.display = 'none';
+
+        // If auto-summarize is enabled and we have PDF content, trigger summarization
+        if (autoSummarizeToggle.checked && isPdfPage && pdfContent) {
+          // Create a response container for the summary
+          const responseContainer = document.createElement('div');
+          responseContainer.className = 'response-message';
+          chatMessages.appendChild(responseContainer);
+
+          // Add summarization request to conversation
+          conversation.push({ 
+            role: 'user', 
+            content: 'Analyze and explain a scientific paper in an accessible format, breaking down complex research into understandable components while preserving technical accuracy.\n\n' +
+              'The response should be formatted in markdown with the following structure:\n\n' +
+              '# Paper Title\n' +
+              '[📄 Paper]({pdf_url}) | [💻 Code](url)\n\n' +
+              '## Abstract\n\n' +
+              '## Summary in Simple Terms\n\n' +
+              '## Key Points\n\n' +
+              '## Technical Details\n\n' +
+              '## Impact and Applications\n\n' +
+              '## Limitations and Future Work'
+          });
+
+          try {
+            const stream = await callOpenAI(apiKey, conversation);
+            let responseText = '';
+            let markdownBuffer = '';
+            
+            const processMarkdown = debounce((text) => {
+              responseContainer.innerHTML = marked.parse(text);
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+            }, 50);
+
+            for await (const chunk of stream.streamResponse()) {
+              responseText += chunk;
+              markdownBuffer += chunk;
+              processMarkdown(markdownBuffer);
+            }
+
+            conversation.push({ role: 'assistant', content: responseText });
+            
+            responseContainer.addEventListener('click', handleLinkClick);
+          } catch (error) {
+            responseContainer.textContent = `Error: ${error.message}`;
+          }
+        }
       });
     } else {
       saveStatus.textContent = 'Please enter a valid API key.';
@@ -657,5 +709,16 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!result.openai_api_key) {
       settingsModal.style.display = 'block';
     }
+  });
+
+  // Initialize auto_summarize setting if not already set
+  chrome.storage.local.get(['auto_summarize'], function(result) {
+    if (result.auto_summarize === undefined) {
+      chrome.storage.local.set({ 'auto_summarize': true }, function() {
+        console.log('Auto-summarize initialized to true');
+      });
+    }
+    // Set the checkbox state
+    autoSummarizeToggle.checked = result.auto_summarize !== false;
   });
 });
