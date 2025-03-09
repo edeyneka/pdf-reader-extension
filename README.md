@@ -5,7 +5,7 @@
 </p>
 
 ## Description
-A Chrome extension that allows you to chat with PDFs using AI. Currently supports only OpenAI GPT-4o model. You will need OpenAI API key to use this extension.
+Chrome extension that allows you to chat with PDFs using AI. Currently supports OpenAI GPT-4o model (OpenAI API key is required).
 
 ## Installation
 
